@@ -40,7 +40,7 @@ func (output *JsonOutput) Get(astroObject *AstroObject, visibilityWindows *[]Vis
 	output.VisibilityWindows = visibilityWindows
 	res, err := json.Marshal(output)
 	if err != nil {
-		res = []byte(fmt.Sprint("Error creating json", err.Error()))
+		res = fmt.Append(nil, "Error creating json", err.Error())
 	}
 	return string(res)
 }
