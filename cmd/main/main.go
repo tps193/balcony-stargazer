@@ -63,15 +63,22 @@ func calculateAltitudeVisibility(astroObject *AstroObject, config *Config, start
 		visible := isVisible(alt, az, config)
 		// t1, t2 := getTelescopeMinMaxAltitute(config, az)
 
+		if lastVisibilityWindow != nil {
+			lastVisibilityWindow.EndAlt = alt
+			lastVisibilityWindow.EndTime = t
+		}
+
 		if visible {
 			if lastVisibilityWindow == nil {
 				lastVisibilityWindow = &VisibilityWindow{
 					StartTime: t,
 					StartAlt:  alt,
+					EndAlt:    alt,
+					EndTime:   t,
 				}
 			}
 		} else if lastVisibilityWindow != nil {
-			endVisibilityWindow(&lastVisibilityWindow, &visibilityWindows, t)
+			endVisibilityWindow(&lastVisibilityWindow, &visibilityWindows)
 		}
 
 		// if !printVisibleOnly || visible {
@@ -83,7 +90,7 @@ func calculateAltitudeVisibility(astroObject *AstroObject, config *Config, start
 		// }
 	}
 	if lastVisibilityWindow != nil {
-		endVisibilityWindow(&lastVisibilityWindow, &visibilityWindows, endTime)
+		endVisibilityWindow(&lastVisibilityWindow, &visibilityWindows)
 	}
 
 	var result Result
@@ -98,8 +105,7 @@ func calculateAltitudeVisibility(astroObject *AstroObject, config *Config, start
 	// }
 }
 
-func endVisibilityWindow(lastVisibilityWindow **VisibilityWindow, visibilityWindows *[]VisibilityWindow, endTime time.Time) {
-	(**lastVisibilityWindow).EndTime = endTime
+func endVisibilityWindow(lastVisibilityWindow **VisibilityWindow, visibilityWindows *[]VisibilityWindow) {
 	*visibilityWindows = append(*visibilityWindows, **lastVisibilityWindow)
 	*lastVisibilityWindow = nil
 }
