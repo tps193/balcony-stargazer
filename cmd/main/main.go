@@ -2,126 +2,119 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
+	"flag"
 	"fmt"
-	"math"
+	"log"
 	"os"
 	"time"
 )
 
 func main() {
-	config := Config{
-		FenceHeight:     43.25,
-		WindowHeight:    62.00,
-		DistanceToFence: 35,
-		TelescopeHeight: VESPERA_HEIGHT,
-		DirectAzimuth:   80.00,
-		Position:        Position{37.38, -121.89},
+	// logFile := initLogging()
+	// defer logFile.Close()
+
+	configFile := flag.String("configfile", "", "Path to the configuration file")
+	configStr := flag.String("configstr", "", "Configuration string in JSON format")
+
+	objectFile := flag.String("objectfile", "", "Path to the object file")
+	objectStr := flag.String("objectstr", "", "Object string in JSON format")
+
+	startTimeValue := flag.String("starttime", "", "Start time in RFC3339 format (e.g., 2024-06-30T22:30:00Z)")
+	endTimeValue := flag.String("endtime", "", "End time in RFC3339 format (e.g., 2025-07-01T05:30:00Z)")
+
+	logfile := flag.String("logfile", "", "Path to the log file")
+
+	flag.Parse()
+
+	f := initLogging(logfile)
+	if f != nil {
+		defer f.Close()
 	}
 
-	if len(os.Args) < 2 {
-		fmt.Println("No object specified")
+	configValue, err := readFlag(configFile, configStr, "config")
+	if err != nil {
+		fmt.Println("Error reading configuration:", err)
+		return
+	}
+	var config Config
+	err = json.Unmarshal([]byte(configValue), &config)
+	if err != nil {
+		fmt.Println("Error parsing configuration:", err)
 		return
 	}
 
-	jsonStr := os.Args[1]
+	astroObjectValue, err := readFlag(objectFile, objectStr, "astronomical object")
+	if err != nil {
+		fmt.Println("Error reading astronomical object:", err)
+		return
+	}
 	var object AstroObject
-	err := json.Unmarshal([]byte(jsonStr), &object)
+	err = json.Unmarshal([]byte(astroObjectValue), &object)
 	if err != nil {
 		fmt.Println("Error parsing json:", err)
 		return
 	}
 
-	// object := AstroObject{
-	// 	Name: "NGC 6992",
-	// 	Ra:   RightAscention{20, 58, 18},
-	// 	Dec:  Declanation{31, 43, 0},
-	// }
+	startTime, err := parseTime(startTimeValue)
+	if err != nil {
+		fmt.Println("Error parsing start time:", err)
+		return
+	}
+	endTime, err := parseTime(endTimeValue)
+	if err != nil {
+		fmt.Println("Error parsing end time:", err)
+		return
+	}
 
-	startTime := time.Date(time.Now().Year(), 6, 30, 22, 30, 0, 0, time.Now().Location())
-	endTime := time.Date(2025, startTime.Month(), startTime.Day()+1, 1, 30, 0, 0, time.Now().Location())
-
-	fmt.Printf("Observed time from %s to %s\n", startTime, endTime)
-	fmt.Println(config)
-	fmt.Println(object)
+	log.Printf("Observed time from %s to %s\n", startTime, endTime)
+	log.Println(config)
+	log.Println(object)
+	log.Printf("Start time: %s, End time: %s\n", startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
 
 	calculateAltitudeVisibility(&object, &config, startTime, endTime, 5, true)
 }
 
-type VisibilityWindow struct {
-	StartTime time.Time `json:"startTime"`
-	EndTime   time.Time `json:"endTime"`
-	StartAlt  float64   `json:"startAlt"`
-	EndAlt    float64   `json:"endAlt"`
+func parseTime(timeStr *string) (time.Time, error) {
+	if timeStr == nil || *timeStr == "" {
+		return time.Time{}, errors.New("time value is required")
+	}
+	timeObj, err := time.Parse(time.RFC3339, *timeStr)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return timeObj, nil
 }
 
-func calculateAltitudeVisibility(astroObject *AstroObject, config *Config, startTime, endTime time.Time, stepInMinutes time.Duration, printVisibleOnly bool) {
-	visibilityWindows := make([]VisibilityWindow, 0)
-	var lastVisibilityWindow *VisibilityWindow
-	for t := startTime; t.Before(endTime) || t.Equal(endTime); t = t.Add(stepInMinutes * time.Minute) {
-
-		alt, az := radecToAltAz(astroObject, &config.Position, t)
-		visible := isVisible(alt, az, config)
-		// t1, t2 := getTelescopeMinMaxAltitute(config, az)
-
-		if lastVisibilityWindow != nil {
-			lastVisibilityWindow.EndAlt = alt
-			lastVisibilityWindow.EndTime = t
-		}
-
-		if visible {
-			if lastVisibilityWindow == nil {
-				lastVisibilityWindow = &VisibilityWindow{
-					StartTime: t,
-					StartAlt:  alt,
-					EndAlt:    alt,
-					EndTime:   t,
-				}
-			}
-		} else if lastVisibilityWindow != nil {
-			endVisibilityWindow(&lastVisibilityWindow, &visibilityWindows)
-		}
-
-		// if !printVisibleOnly || visible {
-		// 	fmt.Println(t.Format("2006-01-02 15:04:05"))
-		// 	// fmt.Printf("Altitude: %.2f°, Azimuth: %.2f°\n", alt, az)
-		// 	fmt.Printf("Altitude: %.2f°\n", alt)
-		// 	fmt.Println(visible)
-		// 	fmt.Println(Rad2deg(t1), Rad2deg(t2))
-		// }
+func readFlag(fileValue, strValue *string, name string) (string, error) {
+	if *fileValue == "" && *strValue == "" {
+		return "", errors.New("no configuration provided")
 	}
-	if lastVisibilityWindow != nil {
-		endVisibilityWindow(&lastVisibilityWindow, &visibilityWindows)
+	if *fileValue != "" && *strValue != "" {
+		return "", errors.New("either a configuration file or a configuration string can be provided")
 	}
 
-	var result Result
-	result = NewJsonOutput() //NewSimpleOutputResult()
-	fmt.Println(result.Get(astroObject, &visibilityWindows))
-
-	// fmt.Printf("Visibility of %s:\n", astroObject.Name)
-	// for i, window := range visibilityWindows {
-	// 	fmt.Printf("%d: %s\n", i, window.EndTime.Sub(window.StartTime))
-	// 	fmt.Printf("\tStart: %s\n", window.StartTime)
-	// 	fmt.Printf("\tEnd: %s\n", window.EndTime)
-	// }
+	result := *strValue
+	if *fileValue != "" {
+		file, err := os.ReadFile(*fileValue)
+		if err != nil {
+			return "", errors.New("Error reading configuration file: " + err.Error())
+		}
+		result = string(file)
+	}
+	return result, nil
 }
 
-func endVisibilityWindow(lastVisibilityWindow **VisibilityWindow, visibilityWindows *[]VisibilityWindow) {
-	*visibilityWindows = append(*visibilityWindows, **lastVisibilityWindow)
-	*lastVisibilityWindow = nil
-}
-
-func isVisible(objectAltitute float64, objectAzimuth float64, config *Config) bool {
-	alphaMin, alphaMax := getTelescopeMinMaxAltitute(config, objectAzimuth)
-	return objectAltitute > Rad2deg(alphaMin) && objectAltitute < Rad2deg(alphaMax)
-}
-
-func getTelescopeMinMaxAltitute(config *Config, objectAzimuth float64) (float64, float64) {
-	angleDiff := Deg2rad(math.Abs(objectAzimuth - config.DirectAzimuth))
-	alphaMin := altitudeAtAzimuthDiff(config.FenceHeight-config.TelescopeHeight, config.DistanceToFence, angleDiff) - Deg2rad(3.0)
-	alphaMax := altitudeAtAzimuthDiff(config.WindowHeight+config.FenceHeight-config.TelescopeHeight, config.DistanceToFence, angleDiff)
-	return alphaMin, alphaMax
-}
-
-func altitudeAtAzimuthDiff(actualFenceHeight, distanceToFence, angleDiff float64) float64 {
-	return math.Atan(actualFenceHeight * math.Cos(angleDiff) / distanceToFence)
+func initLogging(logfile *string) *os.File {
+	if *logfile != "" {
+		f, err := os.OpenFile(*logfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			fmt.Println("Error opening log file:", err)
+			return nil
+		}
+		log.SetOutput(f)
+		return f
+	} else {
+		return nil
+	}
 }
