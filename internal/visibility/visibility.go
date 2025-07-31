@@ -62,6 +62,9 @@ func isVisible(objectAltitute float64, objectAzimuth float64, config *Config) bo
 
 func getTelescopeMinMaxAltitute(config *Config, objectAzimuth float64) (float64, float64) {
 	angleDiff := Deg2rad(math.Abs(objectAzimuth - config.DirectAzimuth))
+	if angleDiff > 180 {
+		angleDiff = 360 - angleDiff
+	}
 	alphaMin := altitudeAtAzimuthDiff(config.FenceHeight-config.TelescopeHeight, config.DistanceToFence, angleDiff) - Deg2rad(3.0)
 	alphaMax := altitudeAtAzimuthDiff(config.WindowHeight+config.FenceHeight-config.TelescopeHeight, config.DistanceToFence, angleDiff)
 	return Rad2deg(alphaMin), Rad2deg(alphaMax)
