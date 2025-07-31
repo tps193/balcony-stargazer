@@ -8,6 +8,8 @@ import (
 	"log"
 	"os"
 	"time"
+
+	"balcony-stargazer/internal/visibility"
 )
 
 func main() {
@@ -37,7 +39,7 @@ func main() {
 		fmt.Println("Error reading configuration:", err)
 		return
 	}
-	var config Config
+	var config visibility.Config
 	err = json.Unmarshal([]byte(configValue), &config)
 	if err != nil {
 		fmt.Println("Error parsing configuration:", err)
@@ -49,7 +51,7 @@ func main() {
 		fmt.Println("Error reading astronomical object:", err)
 		return
 	}
-	var object AstroObject
+	var object visibility.AstroObject
 	err = json.Unmarshal([]byte(astroObjectValue), &object)
 	if err != nil {
 		fmt.Println("Error parsing json:", err)
@@ -72,7 +74,8 @@ func main() {
 	log.Println(object)
 	log.Printf("Start time: %s, End time: %s\n", startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
 
-	calculateAltitudeVisibility(&object, &config, startTime, endTime, 5, true)
+	visibilityWindows := visibility.CalculateAltitudeVisibility(&object, &config, startTime, endTime, 5, true)
+	fmt.Println(visibility.NewSimpleOutputResult().Get(&object, &visibilityWindows))
 }
 
 func parseTime(timeStr *string) (time.Time, error) {

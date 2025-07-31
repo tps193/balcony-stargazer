@@ -1,6 +1,7 @@
-package main
+package visibility
 
 import (
+	"log"
 	"math"
 	"time"
 )
@@ -12,14 +13,18 @@ type VisibilityWindow struct {
 	EndAlt    float64   `json:"endAlt"`
 }
 
-func calculateAltitudeVisibility(astroObject *AstroObject, config *Config, startTime, endTime time.Time, stepInMinutes time.Duration, printVisibleOnly bool) []VisibilityWindow {
+func CalculateAltitudeVisibility(astroObject *AstroObject, config *Config, startTime, endTime time.Time, stepInMinutes time.Duration, printVisibleOnly bool) []VisibilityWindow {
+	min, max := getTelescopeMinMaxAltitute(config, config.DirectAzimuth)
+	log.Printf("Telescope min altitude: %.2f°, max altitude: %.2f° at %f° azimuth\n", min, max, config.DirectAzimuth)
 	visibilityWindows := make([]VisibilityWindow, 0)
 	var lastVisibilityWindow *VisibilityWindow
 	for t := startTime; t.Before(endTime) || t.Equal(endTime); t = t.Add(stepInMinutes * time.Minute) {
-
+		log.Println("Calculating visibility for time:", t.Format(time.RFC3339))
 		alt, az := radecToAltAz(astroObject, &config.Position, t)
+		log.Printf("Altitude: %.2f°, Azimuth: %.2f°\n", alt, az)
+		min, max := getTelescopeMinMaxAltitute(config, az)
+		log.Printf("Telescope min altitude: %.2f°, max altitude: %.2f° at %f° azimuth\n", min, max, az)
 		visible := isVisible(alt, az, config)
-		// t1, t2 := getTelescopeMinMaxAltitute(config, az)
 
 		if lastVisibilityWindow != nil {
 			lastVisibilityWindow.EndAlt = alt
@@ -38,25 +43,10 @@ func calculateAltitudeVisibility(astroObject *AstroObject, config *Config, start
 		} else if lastVisibilityWindow != nil {
 			endVisibilityWindow(&lastVisibilityWindow, &visibilityWindows)
 		}
-
-		// if !printVisibleOnly || visible {
-		// 	fmt.Println(t.Format("2006-01-02 15:04:05"))
-		// 	// fmt.Printf("Altitude: %.2f°, Azimuth: %.2f°\n", alt, az)
-		// 	fmt.Printf("Altitude: %.2f°\n", alt)
-		// 	fmt.Println(visible)
-		// 	fmt.Println(Rad2deg(t1), Rad2deg(t2))
-		// }
 	}
 	if lastVisibilityWindow != nil {
 		endVisibilityWindow(&lastVisibilityWindow, &visibilityWindows)
 	}
-
-	// fmt.Printf("Visibility of %s:\n", astroObject.Name)
-	// for i, window := range visibilityWindows {
-	// 	fmt.Printf("%d: %s\n", i, window.EndTime.Sub(window.StartTime))
-	// 	fmt.Printf("\tStart: %s\n", window.StartTime)
-	// 	fmt.Printf("\tEnd: %s\n", window.EndTime)
-	// }
 	return visibilityWindows
 }
 

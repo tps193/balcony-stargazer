@@ -1,4 +1,4 @@
-package main
+package visibility
 
 const (
 	VESPERA_HEIGHT = 18.00

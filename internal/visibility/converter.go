@@ -2,7 +2,7 @@
 Generated with AI
 */
 
-package main
+package visibility
 
 import (
 	"math"

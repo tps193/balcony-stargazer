@@ -1,4 +1,4 @@
-package mcp
+package main
 
 import (
 	"context"
@@ -6,38 +6,22 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
+	"time"
 
 	"github.com/alecthomas/jsonschema"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+
+	"balcony-stargazer/internal/visibility"
 )
 
-type AstroObject struct {
-	Name string         `json:"name"`
-	Ra   RightAscention `json:"ra"`
-	Dec  Declanation    `json:"dec"`
-}
-
-type Position struct {
-	Latitude   float64
-	Longtitude float64
-}
-
-type RightAscention struct {
-	Hour float64 `json:"hour"`
-	Min  float64 `json:"min"`
-	Sec  float64 `json:"sec"`
-}
-
-type Declanation struct {
-	Degree float64 `json:"degree"`
-	Min    float64 `json:"min"`
-	Sec    float64 `json:"sec"`
-}
+const (
+	AstroObjectInfo = "astroObjectInfo"
+	Config          = "config"
+)
 
 func main() {
-	f, err := os.OpenFile("", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile("mcp.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -55,27 +39,45 @@ func main() {
 		"0.0.1",
 		server.WithToolCapabilities(true),
 	)
-	schema := jsonschema.Reflect(&AstroObject{})
-	shemaBytes, err := json.Marshal(schema)
+	schema := jsonschema.Reflect(&visibility.AstroObject{})
+	schemaBytes, err := json.Marshal(schema)
 	if err != nil {
 		fmt.Println("Error creating schema for AstroObject:", err)
 		panic(err)
 	}
+	astroObjectSchema := string(schemaBytes)
+
+	schema = jsonschema.Reflect(&visibility.Config{})
+	schemaBytes, err = json.Marshal(schema)
+	if err != nil {
+		fmt.Println("Error creating schema for Config:", err)
+		panic(err)
+	}
+	configSchema := string(schemaBytes)
 
 	// Add tool
 	tool := mcp.NewTool("astro_object_visibility",
-		mcp.WithDescription("Allows to calculate visibility windows for astronomical objects"),
-		mcp.WithString("astroObjectInfo",
+		mcp.WithDescription("Allows to calculate visibility windows for astronomical objects. Ask user for parameters and wait input before running the tool.s"),
+		mcp.WithString(AstroObjectInfo,
 			mcp.Required(),
-			mcp.Description("Name and coordinates of the astronomical object formatted as single string json "+string(shemaBytes)),
+			mcp.Description("Name and coordinates of the astronomical object formatted as single string json "+astroObjectSchema),
+		),
+		mcp.WithString(Config,
+			mcp.Required(),
+			mcp.Description("Must be asked from user. Configuration for visibility calculation formatted as single string json "+configSchema),
+		),
+		mcp.WithString("startTime",
+			mcp.Required(),
+			mcp.Description("Must be asked from user and not generated. Observation start time in RFC3339 format (e.g., 2024-06-30T22:30:00Z)"),
+		),
+		mcp.WithString("endTime",
+			mcp.Required(),
+			mcp.Description("Observation end time in RFC3339 format (e.g., 2025-07-01T05:30:00Z)"),
 		),
 	)
 
-	// calcule visibility of Veil Nebula using the visibility tool
-	log.Println(string(shemaBytes))
-
 	// Add tool handler
-	s.AddTool(tool, helloHandler)
+	s.AddTool(tool, visibilityHandler)
 
 	// Start the stdio server
 	if err := server.ServeStdio(s); err != nil {
@@ -83,44 +85,60 @@ func main() {
 	}
 }
 
-func helloHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// name, err := request.RequireString("name")
-	// if err != nil {
-	// 	return mcp.NewToolResultError(err.Error()), nil
-	// }
-
-	// return mcp.NewToolResultText(fmt.Sprintf("Hello, %s!", name)), nil
-	//show visibility of Veil Nebula using the visibility tool
-
-	// if request.Params.Arguments == nil {
-	// 	return mcp.NewToolResultError("No coordinates json provided"), nil
-	// }
-
-	info, err := request.RequireString("astroObjectInfo")
+func visibilityHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	jsonStr, err := request.RequireString(AstroObjectInfo)
 	if err != nil {
+		log.Fatal("Error requiring astroObjectInfo:", err)
+		return mcp.NewToolResultError("Error: error getting required parameter " + AstroObjectInfo + " - " + err.Error() + ". Single line string json is expected"), nil
+	}
+	log.Println("AstroObjectInfo: ", jsonStr)
+
+	astroObject := &visibility.AstroObject{}
+	err = json.Unmarshal([]byte(jsonStr), astroObject)
+	if err != nil {
+		log.Fatal(err.Error())
+		return mcp.NewToolResultError("Error unmarshalling Astro Object json: " + err.Error()), nil
+	}
+	log.Println("Unmarshalled object: ", astroObject)
+
+	jsonStr, err = request.RequireString(Config)
+	if err != nil {
+		log.Fatal("Error requiring config:", err)
 		return mcp.NewToolResultError(err.Error() + ". Single line string json is expected"), nil
 	}
-	log.Println("astroObjectInfo:", info)
+	log.Println("Config: ", jsonStr)
 
-	visibilityTool := "/Users/sergey/Programming/GoProjects/balconyStargazer/main"
-	astroObject := &AstroObject{}
-	// request.BindArguments(astroObject)
-	log.Println(astroObject)
-	err = json.Unmarshal([]byte(info), astroObject)
+	config := &visibility.Config{}
+	err = json.Unmarshal([]byte(jsonStr), config)
 	if err != nil {
-		log.Println(err.Error())
+		log.Fatal(err.Error())
 		return mcp.NewToolResultError(err.Error()), nil
 	}
+	log.Println("Unmarshalled config: ", config)
 
-	encoded, err := json.Marshal(astroObject)
+	startTimeStr, err := request.RequireString("startTime")
 	if err != nil {
-		log.Println(err.Error())
+		log.Fatal("Error requiring startTime:", err)
+		return mcp.NewToolResultError(err.Error() + ". Start time in RFC3339 format (e.g., 2024-06-30T22:30:00Z) is expected"), nil
+	}
+	startTime, err := time.Parse(time.RFC3339, startTimeStr)
+	if err != nil {
+		log.Fatal("Error parsing start time:", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
-	execCmd := exec.Command(visibilityTool, string(encoded))
-	execOutput, err := execCmd.Output()
+	endTimeStr, err := request.RequireString("endTime")
 	if err != nil {
-		return mcp.NewToolResultText(err.Error()), nil
+		log.Fatal("Error requiring endTime:", err)
+		return mcp.NewToolResultError(err.Error() + ". End time in RFC3339 format (e.g., 2025-07-01T05:30:00Z) is expected"), nil
 	}
-	return mcp.NewToolResultText(string(execOutput)), nil
+	endTime, err := time.Parse(time.RFC3339, endTimeStr)
+	if err != nil {
+		log.Fatal("Error parsing end time:", err)
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	log.Printf("Observed time from %s to %s\n", startTime, endTime)
+
+	visibilityWindows := visibility.CalculateAltitudeVisibility(astroObject, config, startTime, endTime, 5, true)
+	result := visibility.NewJsonOutput().Get(astroObject, visibilityWindows)
+	return mcp.NewToolResultText(result), nil
 }
