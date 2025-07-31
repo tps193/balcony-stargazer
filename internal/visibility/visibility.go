@@ -22,8 +22,6 @@ func CalculateAltitudeVisibility(astroObject *AstroObject, config *Config, start
 		log.Println("Calculating visibility for time:", t.Format(time.RFC3339))
 		alt, az := radecToAltAz(astroObject, &config.Position, t)
 		log.Printf("Altitude: %.2f°, Azimuth: %.2f°\n", alt, az)
-		min, max := getTelescopeMinMaxAltitute(config, az)
-		log.Printf("Telescope min altitude: %.2f°, max altitude: %.2f° at %f° azimuth\n", min, max, az)
 		visible := isVisible(alt, az, config)
 
 		if lastVisibilityWindow != nil {
@@ -57,6 +55,7 @@ func endVisibilityWindow(lastVisibilityWindow **VisibilityWindow, visibilityWind
 
 func isVisible(objectAltitute float64, objectAzimuth float64, config *Config) bool {
 	alphaMin, alphaMax := getTelescopeMinMaxAltitute(config, objectAzimuth)
+	log.Printf("Telescope min altitude: %.2f°, max altitude: %.2f° at %f° azimuth\n", alphaMin, alphaMax, objectAzimuth)
 	return objectAltitute > alphaMin && objectAltitute < alphaMax
 }
 
