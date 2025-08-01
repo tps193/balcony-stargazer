@@ -68,11 +68,11 @@ func main() {
 		),
 		mcp.WithString("startTime",
 			mcp.Required(),
-			mcp.Description("Must be asked from user and not generated. Observation start time in RFC3339 format (e.g., 2024-06-30T22:30:00Z)"),
+			mcp.Description("Must be asked from user and not generated. Observation start time in RFC3339 format (e.g., 2024-06-30T22:30:00-05:00). Timezone is required and must be calculated from the user location from config parameter."),
 		),
 		mcp.WithString("endTime",
 			mcp.Required(),
-			mcp.Description("Observation end time in RFC3339 format (e.g., 2025-07-01T05:30:00Z)"),
+			mcp.Description("Must be asked from user and not generated. Observation end time in RFC3339 format (e.g., 2025-07-01T05:30:00-05:00). Timezone is required and must be calculated from the user location from config parameter."),
 		),
 	)
 
@@ -88,22 +88,22 @@ func main() {
 func visibilityHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	jsonStr, err := request.RequireString(AstroObjectInfo)
 	if err != nil {
-		log.Fatal("Error requiring astroObjectInfo:", err)
-		return mcp.NewToolResultError("Error: error getting required parameter " + AstroObjectInfo + " - " + err.Error() + ". Single line string json is expected"), nil
+		log.Println("Error requiring astroObjectInfo: ", err)
+		return mcp.NewToolResultError("Error: error getting required parameter " + AstroObjectInfo + " due to " + err.Error() + ". Single line json string is expected"), nil
 	}
 	log.Println("AstroObjectInfo: ", jsonStr)
 
 	astroObject := &visibility.AstroObject{}
 	err = json.Unmarshal([]byte(jsonStr), astroObject)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Println(err.Error())
 		return mcp.NewToolResultError("Error unmarshalling Astro Object json: " + err.Error()), nil
 	}
 	log.Println("Unmarshalled object: ", astroObject)
 
 	jsonStr, err = request.RequireString(Config)
 	if err != nil {
-		log.Fatal("Error requiring config:", err)
+		log.Println("Error requiring config:", err)
 		return mcp.NewToolResultError(err.Error() + ". Single line string json is expected"), nil
 	}
 	log.Println("Config: ", jsonStr)
@@ -111,29 +111,29 @@ func visibilityHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 	config := &visibility.Config{}
 	err = json.Unmarshal([]byte(jsonStr), config)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Println(err.Error())
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 	log.Println("Unmarshalled config: ", config)
 
 	startTimeStr, err := request.RequireString("startTime")
 	if err != nil {
-		log.Fatal("Error requiring startTime:", err)
+		log.Println("Error requiring startTime:", err)
 		return mcp.NewToolResultError(err.Error() + ". Start time in RFC3339 format (e.g., 2024-06-30T22:30:00Z) is expected"), nil
 	}
 	startTime, err := time.Parse(time.RFC3339, startTimeStr)
 	if err != nil {
-		log.Fatal("Error parsing start time:", err)
+		log.Println("Error parsing start time:", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 	endTimeStr, err := request.RequireString("endTime")
 	if err != nil {
-		log.Fatal("Error requiring endTime:", err)
+		log.Println("Error requiring endTime:", err)
 		return mcp.NewToolResultError(err.Error() + ". End time in RFC3339 format (e.g., 2025-07-01T05:30:00Z) is expected"), nil
 	}
 	endTime, err := time.Parse(time.RFC3339, endTimeStr)
 	if err != nil {
-		log.Fatal("Error parsing end time:", err)
+		log.Println("Error parsing end time:", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 	log.Printf("Observed time from %s to %s\n", startTime, endTime)
