@@ -54,29 +54,42 @@ func greenwichSiderealTime(jd float64) float64 {
 
 // main conversion: RA, Dec, Lat, Lon, Time → Alt, Az
 func radecToAltAz(astroObject *AstroObject, position *Position, observationTime time.Time) (altDeg, azDeg float64) {
-	jd := julianDate(observationTime)
+	utc := observationTime.UTC()
+	jd := julianDate(utc)
 	GST := greenwichSiderealTime(jd)
-	LST := normalize360(GST+position.Longtitude) / 15.0 // in hours
 
-	HA := normalize360((LST - astroObject.Ra.toDegree()) * 15) // hour angle in degrees
-	if HA > 180 {
-		HA -= 360
+	// Local Sidereal Time in degrees
+	LST_deg := normalize360(GST + position.Longtitude)
+
+	// Hour Angle in degrees: HA = LST - RA (all in degrees)
+	HA_deg := normalize360(LST_deg - astroObject.Ra.toDegree())
+	if HA_deg > 180 {
+		HA_deg -= 360
 	}
 
-	HA_rad := Deg2rad(HA)
+	// Convert to radians
+	HA_rad := Deg2rad(HA_deg)
 	dec_rad := Deg2rad(astroObject.Dec.toDegree())
 	lat_rad := Deg2rad(position.Latitude)
 
+	// Compute altitude
 	sinAlt := math.Sin(dec_rad)*math.Sin(lat_rad) + math.Cos(dec_rad)*math.Cos(lat_rad)*math.Cos(HA_rad)
-	alt := math.Asin(sinAlt)
+	alt_rad := math.Asin(sinAlt)
 
-	cosAz := (math.Sin(dec_rad) - math.Sin(alt)*math.Sin(lat_rad)) / (math.Cos(alt) * math.Cos(lat_rad))
-	az := math.Acos(cosAz)
+	// Compute azimuth
+	cosAz := (math.Sin(dec_rad) - math.Sin(alt_rad)*math.Sin(lat_rad)) / (math.Cos(alt_rad) * math.Cos(lat_rad))
+	// Clamp to [-1, 1] to avoid NaN due to floating point rounding
+	if cosAz < -1 {
+		cosAz = -1
+	} else if cosAz > 1 {
+		cosAz = 1
+	}
+	az_rad := math.Acos(cosAz)
 
-	// Adjust azimuth based on hour angle
+	// Adjust azimuth based on HA
 	if math.Sin(HA_rad) > 0 {
-		az = 2*math.Pi - az
+		az_rad = 2*math.Pi - az_rad
 	}
 
-	return Rad2deg(alt), normalize360(Rad2deg(az))
+	return Rad2deg(alt_rad), normalize360(Rad2deg(az_rad))
 }
