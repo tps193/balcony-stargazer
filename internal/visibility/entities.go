@@ -5,12 +5,14 @@ const (
 )
 
 type Config struct {
-	FenceHeight     float64  `json:"fenceHeight"`
-	WindowHeight    float64  `json:"windowHeight"`
-	DistanceToFence float64  `json:"distanceToFence"`
-	TelescopeHeight float64  `json:"telescopeHeight"`
-	DirectAzimuth   float64  `json:"directAzimuth"`
-	Position        Position `json:"position"`
+	FenceHeight       float64  `json:"fenceHeight"`
+	WindowHeight      float64  `json:"windowHeight"`
+	DistanceToFence   float64  `json:"distanceToFence"`
+	TelescopeHeight   float64  `json:"telescopeHeight"`
+	DirectAzimuth     float64  `json:"directAzimuth"`
+	Position          Position `json:"position"`
+	LeftAzimuthLimit  float64  `json:"leftAzimuthLimit"`
+	RightAzimuthLimit float64  `json:"rightAzimuthLimit"`
 }
 
 type AstroObject struct {

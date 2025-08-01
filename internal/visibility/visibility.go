@@ -13,6 +13,7 @@ type VisibilityWindow struct {
 	EndAlt    float64   `json:"endAlt"`
 }
 
+// TODO: validate that time is in UTC
 func CalculateAltitudeVisibility(astroObject *AstroObject, config *Config, startTime, endTime time.Time, stepInMinutes time.Duration, printVisibleOnly bool) []VisibilityWindow {
 	min, max := getTelescopeMinMaxAltitute(config, config.DirectAzimuth)
 	log.Printf("Telescope min altitude: %.2f°, max altitude: %.2f° at %f° azimuth\n", min, max, config.DirectAzimuth)
@@ -54,9 +55,25 @@ func endVisibilityWindow(lastVisibilityWindow **VisibilityWindow, visibilityWind
 }
 
 func isVisible(objectAltitute float64, objectAzimuth float64, config *Config) bool {
+	isAzimuthVisible := isClockwise(config.LeftAzimuthLimit, objectAzimuth) && isClockwise(objectAzimuth, config.RightAzimuthLimit)
+	if !isAzimuthVisible {
+		log.Printf("Object at azimuth %.2f° is not visible, outside of limits [%.2f°, %.2f°]\n", objectAzimuth, config.LeftAzimuthLimit, config.RightAzimuthLimit)
+		return false
+	}
 	alphaMin, alphaMax := getTelescopeMinMaxAltitute(config, objectAzimuth)
 	log.Printf("Telescope min altitude: %.2f°, max altitude: %.2f° at %f° azimuth\n", alphaMin, alphaMax, objectAzimuth)
-	return objectAltitute > alphaMin && objectAltitute < alphaMax
+	isAltitudeVisible := objectAltitute >= alphaMin && objectAltitute <= alphaMax
+	if !isAltitudeVisible {
+		log.Printf("Object at altitude %.2f° is not visible, outside of limits [%.2f°, %.2f°]\n", objectAltitute, alphaMin, alphaMax)
+		return false
+	}
+	return true
+}
+
+func isClockwise(leftAzimuth, rightAzimuth float64) bool {
+	diff := math.Mod((rightAzimuth - leftAzimuth + 360), 360)
+	log.Printf("Clockwise check: leftAzimuth=%.2f°, rightAzimuth=%.2f°, diff=%.2f°\n", leftAzimuth, rightAzimuth, diff)
+	return diff > 0 && diff < 180
 }
 
 func getTelescopeMinMaxAltitute(config *Config, objectAzimuth float64) (float64, float64) {
