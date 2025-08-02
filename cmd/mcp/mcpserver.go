@@ -12,7 +12,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
-	"balcony-stargazer/internal/visibility"
+	"github.com/tps193/balcony-stargazer/internal/visibility"
 )
 
 const (

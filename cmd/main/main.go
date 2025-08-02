@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"balcony-stargazer/internal/visibility"
+	"github.com/tps193/balcony-stargazer/internal/visibility"
 )
 
 func main() {
