@@ -59,7 +59,7 @@ func radecToAltAz(astroObject *AstroObject, position *Position, observationTime 
 	GST := greenwichSiderealTime(jd)
 
 	// Local Sidereal Time in degrees
-	LST_deg := normalize360(GST + position.Longtitude)
+	LST_deg := normalize360(GST + position.Longitude)
 
 	// Hour Angle in degrees: HA = LST - RA (all in degrees)
 	HA_deg := normalize360(LST_deg - astroObject.Ra.toDegree())

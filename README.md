@@ -1,11 +1,14 @@
-Tool for astrophotographers who have a limited observation windows because observing from window or balcony. The tool calculates object visibility windows based on observation place parameters and telescope position.
-More simply, it helps user to understand when or whether the object is not hidden by walls or fence.
-For more fun in addition to command line interface it has MCP server implementation so that can be connected to LLM models.
+# Balcony Stargazer
+
+This tool is designed for astrophotographers with limited observation windows due to balconies or windows. It calculates object visibility based on your location, telescope position, and any obstructions like walls or fences, helping you determine the optimal time to observe. It also has MCP server implementation so that can be connected to LLM models.
 
 # Example
 
 ## Command line
-object.json
+
+These files provide the object details and configuration for the observation setup.
+
+**object.json:** Defines the astronomical object you want to observe, including its name, right ascension (RA), and declination (Dec).
 ```json
 {
   "name": "Ghost of Cassiopeia",
@@ -23,7 +26,7 @@ object.json
 }
 ```
 
-config.json
+**config.json:** Specifies the parameters of your observation location and telescope setup, such as fence height, window height, distance to the fence, telescope height, direct azimuth, and geographical position (latitude and longitude). It also defines the left and right azimuth limits for observations.
 ```json
 {
   "fenceHeight": 43.25,
@@ -33,7 +36,7 @@ config.json
   "directAzimuth": 80.0,
   "position": {
     "latitude": 37.38,
-    "longtitude": -121.89
+    "longitude": -121.89
   },
     "leftAzimuthLimit": 13.0,
     "rightAzimuthLimit": 120.0
@@ -111,7 +114,7 @@ Configuration can be either taken from file (`-configfile`) or provided as a str
   "directAzimuth": "degree",
   "position": {
     "latitude": "degree",
-    "longtitude": "degree"
+    "longitude": "degree"
   },
     "leftAzimuthLimit": "degree",
     "rightAzimuthLimit": "degree"
@@ -121,12 +124,12 @@ Configuration can be either taken from file (`-configfile`) or provided as a str
 | Name | Data Type | Description |
 |------|-----------|-------------|
 | fenceHeight | number | Height of the fence or obstruction in front of the observation point |
-| windowHeight | number | Height of the window from which observations are made (from top of fence to the ceiling) |
+| windowHeight | number | Height of the window from the top of the fence to the ceiling |
 | distanceToFence | number | Distance from the observation point to the fence or obstruction |
 | telescopeHeight | number | Height of the telescope above the ground level (from ground to the rotation point, for example to the servoe of Vaonis Vespera) |
 | directAzimuth | number (degree) | Direct azimuth angle of the observation direction (traversal to the fence) |
 | position.latitude | number (degree) | Geographic latitude of the observation location |
-| position.longtitude | number (degree) | Geographic longitude of the observation location |
+| position.longitude | number (degree) | Geographic longitude of the observation location |
 | leftAzimuthLimit | number (degree) | Left boundary azimuth limit for observations |
 | rightAzimuthLimit | number (degree) | Right boundary
 
@@ -137,7 +140,7 @@ balconystargazer -configfile=config.json -objectfile=object.json -starttime=2025
 ```
 
 ```bash
-balconystargazer -configstr='{"fenceHeight": 43.25, "windowHeight": 62.0, "distanceToFence": 35, "telescopeHeight": 18.0, "directAzimuth": 80.0, "position": {"latitude": 37.38, "longtitude": -121.89}, "leftAzimuthLimit": 13.0, "rightAzimuthLimit": 120.0}' -objectfile=object.json -starttime=2025-07-30T22:13:00-07:00 2025-07-31T05:23:00-07:00
+balconystargazer -configstr='{"fenceHeight": 43.25, "windowHeight": 62.0, "distanceToFence": 35, "telescopeHeight": 18.0, "directAzimuth": 80.0, "position": {"latitude": 37.38, "longitude": -121.89}, "leftAzimuthLimit": 13.0, "rightAzimuthLimit": 120.0}' -objectfile=object.json -starttime=2025-07-30T22:13:00-07:00 -endtime=2025-07-31T05:23:00-07:00
 ```
 
 ### Object Information
@@ -230,6 +233,8 @@ The application should be compiled as
 go build -o mcp ./cmd/mcp
 ```
 
+To configure the MCP server, you'll need to set up a configuration file for `mcphost` that points to the `mcp` executable.
+
 The tool should be preconfigured in `mcphost` yaml congifuration
 
 **mcpconfig.yaml**
@@ -269,7 +274,7 @@ using {
   "directAzimuth": 80.0,
   "position": {
     "latitude": 37.38,
-    "longtitude": -121.89
+    "longitude": -121.89
   },
     "leftAzimuthLimit": 13.0,
     "rightAzimuthLimit": 120.0
