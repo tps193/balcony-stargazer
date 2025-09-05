@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const epsilon = 1e-7 // Small value to avoid division by zero
+
 type VisibilityWindow struct {
 	StartTime time.Time `json:"startTime"`
 	EndTime   time.Time `json:"endTime"`
@@ -81,11 +83,14 @@ func getTelescopeMinMaxAltitute(config *Config, objectAzimuth float64) (float64,
 	if angleDiff > 180 {
 		angleDiff = 360 - angleDiff
 	}
-	alphaMin := altitudeAtAzimuthDiff(config.FenceHeight-config.TelescopeHeight, config.DistanceToFence, angleDiff) - Deg2rad(3.0)
+	alphaMin := altitudeAtAzimuthDiff(config.FenceHeight-config.TelescopeHeight, config.DistanceToFence, angleDiff)
 	alphaMax := altitudeAtAzimuthDiff(config.WindowHeight+config.FenceHeight-config.TelescopeHeight, config.DistanceToFence, angleDiff)
 	return Rad2deg(alphaMin), Rad2deg(alphaMax)
 }
 
 func altitudeAtAzimuthDiff(actualFenceHeight, distanceToFence, angleDiff float64) float64 {
+	if actualFenceHeight <= 0 {
+		actualFenceHeight = epsilon // Avoid division by zero
+	}
 	return math.Atan(actualFenceHeight * math.Cos(angleDiff) / distanceToFence)
 }

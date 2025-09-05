@@ -17,8 +17,8 @@ type Config struct {
 
 type AstroObject struct {
 	Name string         `json:"name"`
-	Ra   RightAscention `json:"ra"`
-	Dec  Declanation    `json:"dec"`
+	Ra   RightAscension `json:"ra"`
+	Dec  Declination    `json:"dec"`
 }
 
 type Position struct {
@@ -26,22 +26,23 @@ type Position struct {
 	Longitude float64 `json:"longitude"`
 }
 
-type RightAscention struct {
+type RightAscension struct {
 	Hour float64 `json:"hour"`
 	Min  float64 `json:"min"`
 	Sec  float64 `json:"sec"`
 }
 
-type Declanation struct {
+type Declination struct {
 	Degree float64 `json:"degree"`
 	Min    float64 `json:"min"`
 	Sec    float64 `json:"sec"`
 }
 
-func (ra RightAscention) toDegree() float64 {
-	return ra.Hour + ra.Min/60 + ra.Sec/3600
+func (ra *RightAscension) toDegree() float64 {
+	hours := float64(ra.Hour) + float64(ra.Min)/60.0 + float64(ra.Sec)/3600.0
+	return hours * 15.0
 }
 
-func (dec Declanation) toDegree() float64 {
+func (dec *Declination) toDegree() float64 {
 	return dec.Degree + dec.Min/60 + dec.Sec/3600
 }
