@@ -38,10 +38,11 @@ type Declanation struct {
 	Sec    float64 `json:"sec"`
 }
 
-func (ra RightAscention) toDegree() float64 {
-	return ra.Hour + ra.Min/60 + ra.Sec/3600
+func (ra *RightAscention) toDegree() float64 {
+	hours := float64(ra.Hour) + float64(ra.Min)/60.0 + float64(ra.Sec)/3600.0
+	return hours * 15.0
 }
 
-func (dec Declanation) toDegree() float64 {
+func (dec *Declanation) toDegree() float64 {
 	return dec.Degree + dec.Min/60 + dec.Sec/3600
 }

@@ -32,17 +32,9 @@ func normalize360(deg float64) float64 {
 
 // julian date from time.Time in UTC
 func julianDate(t time.Time) float64 {
-	year, month, day := t.UTC().Date()
-	hour := float64(t.UTC().Hour()) + float64(t.UTC().Minute())/60 + float64(t.UTC().Second())/3600
-
-	if month <= 2 {
-		year -= 1
-		month += 12
-	}
-	A := year / 100
-	B := 2 - A + A/4
-	JD := float64(int(365.25*float64(year+4716))) + float64(int(30.6001*float64(month+1))) + float64(day) + float64(B) - 1524.5 + hour/24.0
-	return JD
+	unixTime := float64(t.UTC().Unix())
+	jd := 2440587.5 + unixTime/86400.0
+	return jd
 }
 
 // greenwich sidereal time at given julian date
