@@ -64,6 +64,10 @@ func isVisible(objectAltitute float64, objectAzimuth float64, config *Config) bo
 	}
 	alphaMin, alphaMax := getTelescopeMinMaxAltitute(config, objectAzimuth)
 	log.Printf("Telescope min altitude: %.2f°, max altitude: %.2f° at %f° azimuth\n", alphaMin, alphaMax, objectAzimuth)
+	if objectAltitute < 20 || objectAltitute > 70 {
+		log.Printf("Object at altitude %.2f° is not visible, outside of limits [20°, 70°]\n", objectAltitute)
+		return false
+	}
 	isAltitudeVisible := objectAltitute >= alphaMin && objectAltitute <= alphaMax
 	if !isAltitudeVisible {
 		log.Printf("Object at altitude %.2f° is not visible, outside of limits [%.2f°, %.2f°]\n", objectAltitute, alphaMin, alphaMax)
