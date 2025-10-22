@@ -3,10 +3,13 @@ package visibility
 import (
 	"log"
 	"math"
+	"sort"
 	"time"
 )
 
 const epsilon = 1e-7 // Small value to avoid division by zero
+const minObservableAltitude = 20.0
+const maxObservableAltitude = 80.0
 
 type VisibilityWindow struct {
 	StartTime time.Time `json:"startTime"`
@@ -16,43 +19,78 @@ type VisibilityWindow struct {
 }
 
 // TODO: validate that time is in UTC
-func CalculateAltitudeVisibility(astroObject *AstroObject, config *Config, startTime, endTime time.Time, stepInMinutes time.Duration, printVisibleOnly bool) []VisibilityWindow {
-	visibilityWindows := make([]VisibilityWindow, 0)
-	if !ObjectNeverVisible(astroObject, config) && ObjectEverInAzimuthWindow(astroObject, config) {
-		var lastVisibilityWindow *VisibilityWindow
-		min, max := getTelescopeMinMaxAltitute(config, config.DirectAzimuth)
-		log.Printf("Telescope min altitude: %.2f°, max altitude: %.2f° at %f° azimuth\n", min, max, config.DirectAzimuth)
-		for t := startTime; t.Before(endTime) || t.Equal(endTime); t = t.Add(stepInMinutes * time.Minute) {
-			log.Println("Calculating visibility for time:", t.Format(time.RFC3339))
-			alt, az := radecToAltAz(astroObject, &config.Position, t)
-			log.Printf("Altitude: %.2f°, Azimuth: %.2f°\n", alt, az)
-			visible := isVisible(alt, az, config)
+func CalculateAltitudeVisibility(astroObject *AstroObject, configArray *ConfigArray, startTime, endTime time.Time, stepInMinutes time.Duration, printVisibleOnly bool) []VisibilityWindow {
+	var allWindows []VisibilityWindow
+	for _, config := range configArray.Configs {
+		visibilityWindows := make([]VisibilityWindow, 0)
+		// Implement log output showing config info
+		log.Printf("Config: %+v\n", config)
+		if !ObjectNeverVisible(astroObject, &config) && ObjectEverInAzimuthWindow(astroObject, &config) {
+			var lastVisibilityWindow *VisibilityWindow
+			min, max := getTelescopeMinMaxAltitute(&config, config.DirectAzimuth)
+			log.Printf("Telescope min altitude: %.2f°, max altitude: %.2f° at %f° azimuth\n", min, max, config.DirectAzimuth)
+			log.Println("Start visibility calculation cycle")
+			for t := startTime; t.Before(endTime) || t.Equal(endTime); t = t.Add(stepInMinutes * time.Minute) {
+				log.Println("Calculating visibility for time:", t.Format(time.RFC3339))
+				alt, az := radecToAltAz(astroObject, &config.Position, t)
+				// log.Printf("Altitude: %.2f°, Azimuth: %.2f°\n", alt, az)
+				visible := isVisible(alt, az, &config)
 
-			if lastVisibilityWindow != nil {
-				lastVisibilityWindow.EndAlt = alt
-				lastVisibilityWindow.EndTime = t
-			}
-
-			if visible {
-				if lastVisibilityWindow == nil {
-					lastVisibilityWindow = &VisibilityWindow{
-						StartTime: t,
-						StartAlt:  alt,
-						EndAlt:    alt,
-						EndTime:   t,
-					}
+				if lastVisibilityWindow != nil {
+					lastVisibilityWindow.EndAlt = alt
+					lastVisibilityWindow.EndTime = t
 				}
-			} else if lastVisibilityWindow != nil {
+
+				if visible {
+					log.Printf("Object is visible at azimuth %.2f° and altitude %.2f°\n", az, alt)
+					if lastVisibilityWindow == nil {
+						lastVisibilityWindow = &VisibilityWindow{
+							StartTime: t,
+							StartAlt:  alt,
+							EndAlt:    alt,
+							EndTime:   t,
+						}
+					}
+				} else if lastVisibilityWindow != nil {
+					endVisibilityWindow(&lastVisibilityWindow, &visibilityWindows)
+				}
+			}
+			if lastVisibilityWindow != nil {
 				endVisibilityWindow(&lastVisibilityWindow, &visibilityWindows)
 			}
+		} else {
+			log.Printf("Object %s is never visible from the given location and configuration.\n", astroObject.Name)
 		}
-		if lastVisibilityWindow != nil {
-			endVisibilityWindow(&lastVisibilityWindow, &visibilityWindows)
-		}
-	} else {
-		log.Printf("Object %s is never visible from the given location and configuration.\n", astroObject.Name)
+		allWindows = append(allWindows, visibilityWindows...)
 	}
-	return visibilityWindows
+	// Merge overlapping windows from all configs
+	merged := mergeVisibilityWindows(allWindows)
+	return merged
+}
+
+// mergeVisibilityWindows merges overlapping or adjacent visibility windows into a single list
+func mergeVisibilityWindows(windows []VisibilityWindow) []VisibilityWindow {
+	if len(windows) == 0 {
+		return nil
+	}
+	// Sort by start time
+	sort.Slice(windows, func(i, j int) bool {
+		return windows[i].StartTime.Before(windows[j].StartTime)
+	})
+	merged := []VisibilityWindow{windows[0]}
+	for i := 1; i < len(windows); i++ {
+		last := &merged[len(merged)-1]
+		curr := windows[i]
+		if !curr.StartTime.After(last.EndTime) { // Overlapping or adjacent
+			if curr.EndTime.After(last.EndTime) {
+				last.EndTime = curr.EndTime
+				last.EndAlt = curr.EndAlt
+			}
+		} else {
+			merged = append(merged, curr)
+		}
+	}
+	return merged
 }
 
 func ObjectNeverVisible(astroObject *AstroObject, config *Config) bool {
@@ -119,18 +157,18 @@ func endVisibilityWindow(lastVisibilityWindow **VisibilityWindow, visibilityWind
 func isVisible(objectAltitute float64, objectAzimuth float64, config *Config) bool {
 	isAzimuthVisible := isClockwise(config.LeftAzimuthLimit, objectAzimuth) && isClockwise(objectAzimuth, config.RightAzimuthLimit)
 	if !isAzimuthVisible {
-		log.Printf("Object at azimuth %.2f° is not visible, outside of limits [%.2f°, %.2f°]\n", objectAzimuth, config.LeftAzimuthLimit, config.RightAzimuthLimit)
+		log.Printf("Not visible. Azimuth %.2f° is outside of limits [%.2f°, %.2f°]\n", objectAzimuth, config.LeftAzimuthLimit, config.RightAzimuthLimit)
 		return false
 	}
 	alphaMin, alphaMax := getTelescopeMinMaxAltitute(config, objectAzimuth)
 	log.Printf("Telescope min altitude: %.2f°, max altitude: %.2f° at %f° azimuth\n", alphaMin, alphaMax, objectAzimuth)
-	if objectAltitute < 20 || objectAltitute > 70 {
-		log.Printf("Object at altitude %.2f° is not visible, outside of limits [20°, 70°]\n", objectAltitute)
+	if objectAltitute < minObservableAltitude || objectAltitute > maxObservableAltitude {
+		log.Printf("Not visible. Altitude %.2f° is outside of limits [%.2f°, %.2f°]\n", objectAltitute, minObservableAltitude, maxObservableAltitude)
 		return false
 	}
 	isAltitudeVisible := objectAltitute >= alphaMin && objectAltitute <= alphaMax
 	if !isAltitudeVisible {
-		log.Printf("Object at altitude %.2f° is not visible, outside of limits [%.2f°, %.2f°]\n", objectAltitute, alphaMin, alphaMax)
+		log.Printf("Not visible. Altitude %.2f° is outside of limits [%.2f°, %.2f°]\n", objectAltitute, alphaMin, alphaMax)
 		return false
 	}
 	return true

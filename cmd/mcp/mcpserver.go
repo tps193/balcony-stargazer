@@ -47,7 +47,7 @@ func main() {
 	}
 	astroObjectSchema := string(schemaBytes)
 
-	schema = jsonschema.Reflect(&visibility.Config{})
+	schema = jsonschema.Reflect(&visibility.ConfigArray{})
 	schemaBytes, err = json.Marshal(schema)
 	if err != nil {
 		fmt.Println("Error creating schema for Config:", err)
@@ -55,9 +55,9 @@ func main() {
 	}
 	configSchema := string(schemaBytes)
 
-	// Add tool
-	tool := mcp.NewTool("astro_object_visibility",
-		mcp.WithDescription("Allows to calculate visibility windows for astronomical objects. Ask user for parameters and wait input before running the tool.s"),
+	// Add visibilityInWindowTool
+	visibilityInWindowTool := mcp.NewTool("astro_object_visibility",
+		mcp.WithDescription("Allows to calculate visibility windows for astronomical object withing specified range. Ask user for parameters and wait input before running the tool."),
 		mcp.WithString(AstroObjectInfo,
 			mcp.Required(),
 			mcp.Description("Name and coordinates of the astronomical object formatted as single string json "+astroObjectSchema),
@@ -108,7 +108,7 @@ func visibilityHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 	}
 	log.Println("Config: ", jsonStr)
 
-	config := &visibility.Config{}
+	config := &visibility.ConfigArray{}
 	err = json.Unmarshal([]byte(jsonStr), config)
 	if err != nil {
 		log.Println(err.Error())

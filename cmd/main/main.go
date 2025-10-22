@@ -39,7 +39,7 @@ func main() {
 		fmt.Println("Error reading configuration:", err)
 		return
 	}
-	var config visibility.Config
+	var config visibility.ConfigArray
 	err = json.Unmarshal([]byte(configValue), &config)
 	if err != nil {
 		fmt.Println("Error parsing configuration:", err)

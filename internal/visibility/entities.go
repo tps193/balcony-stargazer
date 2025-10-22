@@ -4,6 +4,10 @@ const (
 	VESPERA_HEIGHT = 18.00
 )
 
+type ConfigArray struct {
+	Configs []Config `json:"configs"`
+}
+
 type Config struct {
 	FenceHeight       float64  `json:"fenceHeight"`
 	WindowHeight      float64  `json:"windowHeight"`
