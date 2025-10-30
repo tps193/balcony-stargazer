@@ -19,6 +19,10 @@ type Config struct {
 	RightAzimuthLimit float64  `json:"rightAzimuthLimit"`
 }
 
+type AstroObjectArray struct {
+	Objects []AstroObject `json:"objects"`
+}
+
 type AstroObject struct {
 	Name string         `json:"name"`
 	Ra   RightAscension `json:"ra"`
