@@ -94,7 +94,7 @@ func mergeVisibilityWindows(windows []VisibilityWindow) []VisibilityWindow {
 	for i := 1; i < len(windows); i++ {
 		last := &merged[len(merged)-1]
 		curr := windows[i]
-		if !curr.StartTime.After(last.EndTime) { // Overlapping or adjacent
+		if curr.StartTime.Before(last.EndTime) || curr.StartTime.Equal(last.EndTime) { // Overlapping or adjacent
 			if curr.EndTime.After(last.EndTime) {
 				last.EndTime = curr.EndTime
 				last.EndAlt = curr.EndAlt
@@ -139,7 +139,9 @@ func ObjectEverInAzimuthWindow(astroObject AstroObject, config *Config) bool {
 	// Azimuth at set: 360 - A_rise
 	// sinA := math.Cos(dec)*math.Sin(H) / math.Cos(minAlt) // Not used
 	cosA := (math.Sin(dec) - math.Sin(lat)*math.Sin(minAlt)) / (math.Cos(lat) * math.Cos(minAlt))
-	azimuthRise := Rad2deg(math.Acos(cosA))
+	// Clamp cosA to [-1, 1] to avoid NaN from floating-point errors
+	clampedCosA := math.Max(-1, math.Min(1, cosA))
+	azimuthRise := Rad2deg(math.Acos(clampedCosA))
 	azimuthSet := 360.0 - azimuthRise
 
 	// Normalize azimuths

@@ -57,7 +57,7 @@ func main() {
 
 	// Add visibilityInWindowTool
 	visibilityInWindowTool := mcp.NewTool("astro_object_visibility",
-		mcp.WithDescription("Allows to calculate visibility windows for astronomical object withing specified range. Ask user for parameters and wait input before running the tool."),
+		mcp.WithDescription("Allows to calculate visibility windows for astronomical object within specified range. Ask user for parameters and wait input before running the tool."),
 		mcp.WithString(AstroObjects,
 			mcp.Required(),
 			mcp.Description("Name and coordinates of the array of astronomical object formatted as single string json "+astroObjectSchema),
