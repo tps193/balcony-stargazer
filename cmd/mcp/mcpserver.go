@@ -47,6 +47,14 @@ func main() {
 	}
 	astroObjectSchema := string(schemaBytes)
 
+	schema = jsonschema.Reflect(&visibility.AstroObject{})
+	schemaBytes, err = json.Marshal(schema)
+	if err != nil {
+		fmt.Println("Error creating schema for AstroObject:", err)
+		panic(err)
+	}
+	astroObjectSingleSchema := string(schemaBytes)
+
 	schema = jsonschema.Reflect(&visibility.ConfigArray{})
 	schemaBytes, err = json.Marshal(schema)
 	if err != nil {
@@ -80,7 +88,7 @@ func main() {
 		mcp.WithDescription("Quickly checks if the object is ever visible from the given location and if it ever comes into the specified azimuth window. Does not require time range. Should be used especially when user asks not for a specific object visibility, but to find an object that is visible from the given location and within the azimuth window. For example: find me an object that is visible from my location and within azimuth window 90°-270°. Ask user for parameters and wait input before running the tool."),
 		mcp.WithString(AstroObjects,
 			mcp.Required(),
-			mcp.Description("Name and coordinates of the astronomical object formatted as single string json "+astroObjectSchema),
+			mcp.Description("Name and coordinates of the astronomical object formatted as single string json "+astroObjectSingleSchema),
 		),
 		mcp.WithString(Config,
 			mcp.Required(),
