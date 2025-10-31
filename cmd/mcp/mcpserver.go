@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	AstroObjectInfo = "astroObjectInfo"
-	Config          = "config"
+	AstroObjects = "astroObjects"
+	Config       = "config"
 )
 
 func main() {
@@ -39,28 +39,28 @@ func main() {
 		"0.0.1",
 		server.WithToolCapabilities(true),
 	)
-	schema := jsonschema.Reflect(&visibility.AstroObject{})
+	schema := jsonschema.Reflect(&visibility.AstroObjectArray{})
 	schemaBytes, err := json.Marshal(schema)
 	if err != nil {
-		fmt.Println("Error creating schema for AstroObject:", err)
+		fmt.Println("Error creating schema for AstroObjectArray:", err)
 		panic(err)
 	}
 	astroObjectSchema := string(schemaBytes)
 
-	schema = jsonschema.Reflect(&visibility.Config{})
+	schema = jsonschema.Reflect(&visibility.ConfigArray{})
 	schemaBytes, err = json.Marshal(schema)
 	if err != nil {
-		fmt.Println("Error creating schema for Config:", err)
+		fmt.Println("Error creating schema for ConfigArray:", err)
 		panic(err)
 	}
 	configSchema := string(schemaBytes)
 
-	// Add tool
-	tool := mcp.NewTool("astro_object_visibility",
-		mcp.WithDescription("Allows to calculate visibility windows for astronomical objects. Ask user for parameters and wait input before running the tool.s"),
-		mcp.WithString(AstroObjectInfo,
+	// Add visibilityInWindowTool
+	visibilityInWindowTool := mcp.NewTool("astro_object_visibility",
+		mcp.WithDescription("Allows to calculate visibility windows for astronomical object within specified range. Ask user for parameters and wait input before running the tool."),
+		mcp.WithString(AstroObjects,
 			mcp.Required(),
-			mcp.Description("Name and coordinates of the astronomical object formatted as single string json "+astroObjectSchema),
+			mcp.Description("Name and coordinates of the array of astronomical object formatted as single string json "+astroObjectSchema),
 		),
 		mcp.WithString(Config,
 			mcp.Required(),
@@ -76,8 +76,21 @@ func main() {
 		),
 	)
 
+	quickVisibilityFilterTool := mcp.NewTool("quick_visibility_filter",
+		mcp.WithDescription("Quickly checks if the object is ever visible from the given location and if it ever comes into the specified azimuth window. Does not require time range. Should be used especially when user asks not for a specific object visibility, but to find an object that is visible from the given location and within the azimuth window. For example: find me an object that is visible from my location and within azimuth window 90°-270°. Ask user for parameters and wait input before running the tool."),
+		mcp.WithString(AstroObjects,
+			mcp.Required(),
+			mcp.Description("Name and coordinates of the astronomical object formatted as single string json "+astroObjectSchema),
+		),
+		mcp.WithString(Config,
+			mcp.Required(),
+			mcp.Description("Must be asked from user. Configuration for visibility calculation formatted as single string json "+configSchema),
+		),
+	)
+
 	// Add tool handler
-	s.AddTool(tool, visibilityHandler)
+	s.AddTool(visibilityInWindowTool, visibilityHandler)
+	s.AddTool(quickVisibilityFilterTool, quickVisibilityFilterHandler)
 
 	// Start the stdio server
 	if err := server.ServeStdio(s); err != nil {
@@ -86,20 +99,20 @@ func main() {
 }
 
 func visibilityHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	jsonStr, err := request.RequireString(AstroObjectInfo)
+	jsonStr, err := request.RequireString(AstroObjects)
 	if err != nil {
 		log.Println("Error requiring astroObjectInfo: ", err)
-		return mcp.NewToolResultError("Error: error getting required parameter " + AstroObjectInfo + " due to " + err.Error() + ". Single line json string is expected"), nil
+		return mcp.NewToolResultError("Error: error getting required parameter " + AstroObjects + " due to " + err.Error() + ". Single line json string is expected"), nil
 	}
 	log.Println("AstroObjectInfo: ", jsonStr)
 
-	astroObject := &visibility.AstroObject{}
-	err = json.Unmarshal([]byte(jsonStr), astroObject)
+	astroObjectArray := &visibility.AstroObjectArray{}
+	err = json.Unmarshal([]byte(jsonStr), astroObjectArray)
 	if err != nil {
 		log.Println(err.Error())
 		return mcp.NewToolResultError("Error unmarshalling Astro Object json: " + err.Error()), nil
 	}
-	log.Println("Unmarshalled object: ", astroObject)
+	log.Println("Unmarshalled object: ", astroObjectArray)
 
 	jsonStr, err = request.RequireString(Config)
 	if err != nil {
@@ -108,7 +121,7 @@ func visibilityHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 	}
 	log.Println("Config: ", jsonStr)
 
-	config := &visibility.Config{}
+	config := &visibility.ConfigArray{}
 	err = json.Unmarshal([]byte(jsonStr), config)
 	if err != nil {
 		log.Println(err.Error())
@@ -138,7 +151,45 @@ func visibilityHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 	}
 	log.Printf("Observed time from %s to %s\n", startTime, endTime)
 
-	visibilityWindows := visibility.CalculateAltitudeVisibility(astroObject, config, startTime, endTime, 5, true)
-	result := visibility.NewJsonOutput().Get(astroObject, visibilityWindows)
+	visibilityInfos := visibility.CalculateAltitudeVisibility(astroObjectArray, config, startTime, endTime, 5, true)
+	result := visibility.NewJsonOutput().Get(visibilityInfos)
+	return mcp.NewToolResultText(result), nil
+}
+
+func quickVisibilityFilterHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	jsonStr, err := request.RequireString(AstroObjects)
+	if err != nil {
+		log.Println("Error requiring astroObjectInfo: ", err)
+		return mcp.NewToolResultError("Error: error getting required parameter " + AstroObjects + " due to " + err.Error() + ". Single line json string is expected"), nil
+	}
+	log.Println("AstroObjectInfo: ", jsonStr)
+
+	astroObject := visibility.AstroObject{}
+	err = json.Unmarshal([]byte(jsonStr), &astroObject)
+	if err != nil {
+		log.Println(err.Error())
+		return mcp.NewToolResultError("Error unmarshalling Astro Object json: " + err.Error()), nil
+	}
+	log.Println("Unmarshalled object: ", astroObject)
+
+	jsonStr, err = request.RequireString(Config)
+	if err != nil {
+		log.Println("Error requiring config:", err)
+		return mcp.NewToolResultError(err.Error() + ". Single line string json is expected"), nil
+	}
+	log.Println("Config: ", jsonStr)
+
+	config := &visibility.Config{}
+	err = json.Unmarshal([]byte(jsonStr), config)
+	if err != nil {
+		log.Println(err.Error())
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	log.Println("Unmarshalled config: ", config)
+
+	neverVisible := visibility.ObjectNeverVisible(astroObject, config)
+	everInAzimuthWindow := visibility.ObjectEverInAzimuthWindow(astroObject, config)
+
+	result := fmt.Sprintf("Object %s never visible: %t, ever in azimuth window: %t", astroObject.Name, neverVisible, everInAzimuthWindow)
 	return mcp.NewToolResultText(result), nil
 }

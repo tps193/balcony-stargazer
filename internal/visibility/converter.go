@@ -45,7 +45,7 @@ func greenwichSiderealTime(jd float64) float64 {
 }
 
 // main conversion: RA, Dec, Lat, Lon, Time → Alt, Az
-func radecToAltAz(astroObject *AstroObject, position *Position, observationTime time.Time) (altDeg, azDeg float64) {
+func radecToAltAz(astroObject AstroObject, position *Position, observationTime time.Time) (altDeg, azDeg float64) {
 	utc := observationTime.UTC()
 	jd := julianDate(utc)
 	GST := greenwichSiderealTime(jd)

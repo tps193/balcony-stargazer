@@ -17,10 +17,10 @@ func main() {
 	// defer logFile.Close()
 
 	configFile := flag.String("configfile", "", "Path to the configuration file")
-	configStr := flag.String("configstr", "", "Configuration string in JSON format")
+	configStr := flag.String("configstr", "", "String with configurations in JSON format")
 
 	objectFile := flag.String("objectfile", "", "Path to the object file")
-	objectStr := flag.String("objectstr", "", "Object string in JSON format")
+	objectStr := flag.String("objectstr", "", "String with objects in JSON format")
 
 	startTimeValue := flag.String("starttime", "", "Start time in RFC3339 format (e.g., 2024-06-30T22:30:00Z)")
 	endTimeValue := flag.String("endtime", "", "End time in RFC3339 format (e.g., 2025-07-01T05:30:00Z)")
@@ -39,7 +39,7 @@ func main() {
 		fmt.Println("Error reading configuration:", err)
 		return
 	}
-	var config visibility.Config
+	var config visibility.ConfigArray
 	err = json.Unmarshal([]byte(configValue), &config)
 	if err != nil {
 		fmt.Println("Error parsing configuration:", err)
@@ -51,8 +51,8 @@ func main() {
 		fmt.Println("Error reading astronomical object:", err)
 		return
 	}
-	var object visibility.AstroObject
-	err = json.Unmarshal([]byte(astroObjectValue), &object)
+	var objectsArray visibility.AstroObjectArray
+	err = json.Unmarshal([]byte(astroObjectValue), &objectsArray)
 	if err != nil {
 		fmt.Println("Error parsing json:", err)
 		return
@@ -71,11 +71,11 @@ func main() {
 
 	log.Printf("Observed time from %s to %s\n", startTime, endTime)
 	log.Println(config)
-	log.Println(object)
+	log.Println(objectsArray)
 	log.Printf("Start time: %s, End time: %s\n", startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
 
-	visibilityWindows := visibility.CalculateAltitudeVisibility(&object, &config, startTime, endTime, 5, true)
-	fmt.Println(visibility.NewSimpleOutputResult().Get(&object, &visibilityWindows))
+	visibilityInfos := visibility.CalculateAltitudeVisibility(&objectsArray, &config, startTime, endTime, 5, true)
+	fmt.Println(visibility.NewSimpleOutputResult().Get(&visibilityInfos))
 }
 
 func parseTime(timeStr *string) (time.Time, error) {
