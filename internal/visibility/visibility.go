@@ -76,6 +76,10 @@ func CalculateAltitudeVisibility(astroObjects *AstroObjectArray, configArray *Co
 			Object:            astroObject,
 			VisibilityWindows: merged,
 		}
+		if printVisibleOnly && len(merged) == 0 {
+			log.Printf("Object %s has no visibility windows after merging, skipping.\n", astroObject.Name)
+			continue
+		}
 		allInfo = append(allInfo, visibilityInfo)
 	}
 	return allInfo
