@@ -1,5 +1,7 @@
 package visibility
 
+import "time"
+
 const (
 	VESPERA_HEIGHT = 18.00
 )
@@ -44,6 +46,11 @@ type Declination struct {
 	Degree float64 `json:"degree"`
 	Min    float64 `json:"min"`
 	Sec    float64 `json:"sec"`
+}
+
+type TimeRange struct {
+	StartTime time.Time `json:"startTime"`
+	EndTime   time.Time `json:"endTime"`
 }
 
 func (ra *RightAscension) toDegree() float64 {

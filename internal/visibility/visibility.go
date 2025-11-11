@@ -24,7 +24,7 @@ type VisibilityWindow struct {
 }
 
 // TODO: validate that time is in UTC
-func CalculateAltitudeVisibility(astroObjects *AstroObjectArray, configArray *ConfigArray, startTime, endTime time.Time, stepInMinutes time.Duration, printVisibleOnly bool) []VisibilityInfo {
+func CalculateAltitudeVisibility(astroObjects *AstroObjectArray, configArray *ConfigArray, timeRanges []TimeRange, stepInMinutes time.Duration, printVisibleOnly bool) []VisibilityInfo {
 	var allInfo []VisibilityInfo
 	for _, astroObject := range astroObjects.Objects {
 		allWindows := make([]VisibilityWindow, 0)
@@ -37,33 +37,35 @@ func CalculateAltitudeVisibility(astroObjects *AstroObjectArray, configArray *Co
 				min, max := getTelescopeMinMaxAltitute(&config, config.DirectAzimuth)
 				log.Printf("Telescope min altitude: %.2f°, max altitude: %.2f° at %f° azimuth\n", min, max, config.DirectAzimuth)
 				log.Println("Start visibility calculation cycle")
-				for t := startTime; t.Before(endTime) || t.Equal(endTime); t = t.Add(stepInMinutes * time.Minute) {
-					log.Println("Calculating visibility for time:", t.Format(time.RFC3339))
-					alt, az := radecToAltAz(astroObject, &config.Position, t)
-					// log.Printf("Altitude: %.2f°, Azimuth: %.2f°\n", alt, az)
-					visible := isVisible(alt, az, &config)
+				for _, timeRange := range timeRanges {
+					for t := timeRange.StartTime; t.Before(timeRange.EndTime) || t.Equal(timeRange.EndTime); t = t.Add(stepInMinutes * time.Minute) {
+						log.Println("Calculating visibility for time:", t.Format(time.RFC3339))
+						alt, az := radecToAltAz(astroObject, &config.Position, t)
+						// log.Printf("Altitude: %.2f°, Azimuth: %.2f°\n", alt, az)
+						visible := isVisible(alt, az, &config)
 
-					if lastVisibilityWindow != nil {
-						lastVisibilityWindow.EndAlt = alt
-						lastVisibilityWindow.EndTime = t
-					}
-
-					if visible {
-						log.Printf("Object is visible at azimuth %.2f° and altitude %.2f°\n", az, alt)
-						if lastVisibilityWindow == nil {
-							lastVisibilityWindow = &VisibilityWindow{
-								StartTime: t,
-								StartAlt:  alt,
-								EndAlt:    alt,
-								EndTime:   t,
-							}
+						if lastVisibilityWindow != nil {
+							lastVisibilityWindow.EndAlt = alt
+							lastVisibilityWindow.EndTime = t
 						}
-					} else if lastVisibilityWindow != nil {
+
+						if visible {
+							log.Printf("Object is visible at azimuth %.2f° and altitude %.2f°\n", az, alt)
+							if lastVisibilityWindow == nil {
+								lastVisibilityWindow = &VisibilityWindow{
+									StartTime: t,
+									StartAlt:  alt,
+									EndAlt:    alt,
+									EndTime:   t,
+								}
+							}
+						} else if lastVisibilityWindow != nil {
+							endVisibilityWindow(&lastVisibilityWindow, &visibilityWindows)
+						}
+					}
+					if lastVisibilityWindow != nil {
 						endVisibilityWindow(&lastVisibilityWindow, &visibilityWindows)
 					}
-				}
-				if lastVisibilityWindow != nil {
-					endVisibilityWindow(&lastVisibilityWindow, &visibilityWindows)
 				}
 			} else {
 				log.Printf("Object %s is never visible from the given location and configuration.\n", astroObject.Name)

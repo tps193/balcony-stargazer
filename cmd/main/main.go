@@ -16,33 +16,47 @@ func main() {
 	// logFile := initLogging()
 	// defer logFile.Close()
 
-	configFile := flag.String("configfile", "", "Path to the configuration file")
-	configStr := flag.String("configstr", "", "String with configurations in JSON format")
+	if len(os.Args) < 2 {
+		fmt.Println("Expected 'observe' or 'suggest' subcommand")
+		os.Exit(1)
+	}
+	switch os.Args[1] {
+	case "observe":
+		runObserve(os.Args[2:])
+	case "suggest":
+		panic("Not implemented")
+		// runSuggest(os.Args[2:])
+	default:
+		fmt.Println("expected 'observe' or 'suggest' subcommands")
+		os.Exit(1)
+	}
 
-	objectFile := flag.String("objectfile", "", "Path to the object file")
-	objectStr := flag.String("objectstr", "", "String with objects in JSON format")
+}
 
-	startTimeValue := flag.String("starttime", "", "Start time in RFC3339 format (e.g., 2024-06-30T22:30:00Z)")
-	endTimeValue := flag.String("endtime", "", "End time in RFC3339 format (e.g., 2025-07-01T05:30:00Z)")
+func runObserve(s []string) {
+	observeCmd := flag.NewFlagSet("observe", flag.ExitOnError)
+	configFile := observeCmd.String("configfile", "", "Path to the configuration file")
+	configStr := observeCmd.String("configstr", "", "String with configurations in JSON format")
 
-	logfile := flag.String("logfile", "", "Path to the log file")
+	objectFile := observeCmd.String("objectfile", "", "Path to the object file")
+	objectStr := observeCmd.String("objectstr", "", "String with objects in JSON format")
 
-	flag.Parse()
+	//TODO: make proper descriptions and add help
+	timeFile := observeCmd.String("timefile", "", "Path to the time file in RFC3339 format (e.g., 2024-06-30T22:30:00Z)")
+	timeString := observeCmd.String("timestr", "", "String with observation time windows in RFC3339 format (e.g., 2025-07-01T05:30:00Z)")
+
+	logfile := observeCmd.String("logfile", "", "Path to the log file")
+
+	observeCmd.Parse(s)
 
 	f := initLogging(logfile)
 	if f != nil {
 		defer f.Close()
 	}
 
-	configValue, err := readFlag(configFile, configStr, "config")
+	config, err := parseConfig(configFile, configStr)
 	if err != nil {
-		fmt.Println("Error reading configuration:", err)
-		return
-	}
-	var config visibility.ConfigArray
-	err = json.Unmarshal([]byte(configValue), &config)
-	if err != nil {
-		fmt.Println("Error parsing configuration:", err)
+		fmt.Println("Error loading configuration:", err)
 		return
 	}
 
@@ -58,50 +72,90 @@ func main() {
 		return
 	}
 
-	startTime, err := parseTime(startTimeValue)
+	timeRanges, err := parseTime(timeFile, timeString)
 	if err != nil {
-		fmt.Println("Error parsing start time:", err)
-		return
-	}
-	endTime, err := parseTime(endTimeValue)
-	if err != nil {
-		fmt.Println("Error parsing end time:", err)
+		fmt.Println("Error parsing time range:", err)
 		return
 	}
 
-	log.Printf("Observed time from %s to %s\n", startTime, endTime)
 	log.Println(config)
 	log.Println(objectsArray)
-	log.Printf("Start time: %s, End time: %s\n", startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
 
-	visibilityInfos := visibility.CalculateAltitudeVisibility(&objectsArray, &config, startTime, endTime, 5, true)
+	visibilityInfos := visibility.CalculateAltitudeVisibility(&objectsArray, config, timeRanges, 5, visibility.Filter{MinVisibilityDurationMinutes: 0}, true)
 	fmt.Println(visibility.NewSimpleOutputResult().Get(&visibilityInfos))
 }
 
-func parseTime(timeStr *string) (time.Time, error) {
-	if timeStr == nil || *timeStr == "" {
-		return time.Time{}, errors.New("time value is required")
-	}
-	timeObj, err := time.Parse(time.RFC3339, *timeStr)
+func parseConfig(configFile, configStr *string) (*visibility.ConfigArray, error) {
+	configValue, err := readFlag(configFile, configStr, "config")
 	if err != nil {
-		return time.Time{}, err
+		return nil, fmt.Errorf("Error reading configuration: %w", err)
 	}
-	return timeObj, nil
+	var config visibility.ConfigArray
+	err = json.Unmarshal([]byte(configValue), &config)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing configuration: %w", err)
+	}
+	return &config, nil
+}
+
+func parseTime(timeFile, timeStr *string) ([]visibility.TimeRange, error) {
+	if timeFile == nil && timeStr == nil {
+		return nil, errors.New("time value is required")
+	}
+
+	type TimeRangeStr struct {
+		StartTime string `json:"startTime"`
+		EndTime   string `json:"endTime"`
+	}
+	var timeRangesJson []TimeRangeStr
+	if timeFile != nil && *timeFile != "" {
+		fileContent, err := os.ReadFile(*timeFile)
+		if err != nil {
+			return nil, fmt.Errorf("Error reading time file: %w", err)
+		}
+		err = json.Unmarshal(fileContent, &timeRangesJson)
+		if err != nil {
+			return nil, fmt.Errorf("Error parsing time file: %w", err)
+		}
+	} else if timeStr != nil && *timeStr != "" {
+		err := json.Unmarshal([]byte(*timeStr), &timeRangesJson)
+		if err != nil {
+			return nil, fmt.Errorf("Error parsing time string: %w", err)
+		}
+	}
+
+	var timeRanges []visibility.TimeRange
+	if len(timeRanges) == 0 {
+		return nil, errors.New("no valid time range found")
+	} else {
+		for _, tr := range timeRangesJson {
+			startTime, err := time.Parse(time.RFC3339, tr.StartTime)
+			if err != nil {
+				return nil, fmt.Errorf("Error parsing start time: %w", err)
+			}
+			endTime, err := time.Parse(time.RFC3339, tr.EndTime)
+			if err != nil {
+				return nil, fmt.Errorf("Error parsing end time: %w", err)
+			}
+			timeRanges = append(timeRanges, visibility.TimeRange{StartTime: startTime, EndTime: endTime})
+		}
+	}
+	return timeRanges, nil
 }
 
 func readFlag(fileValue, strValue *string, name string) (string, error) {
 	if *fileValue == "" && *strValue == "" {
-		return "", errors.New("no configuration provided")
+		return "", errors.New("no " + name + " provided")
 	}
 	if *fileValue != "" && *strValue != "" {
-		return "", errors.New("either a configuration file or a configuration string can be provided")
+		return "", errors.New("either a file or a string can be provided for " + name)
 	}
 
 	result := *strValue
 	if *fileValue != "" {
 		file, err := os.ReadFile(*fileValue)
 		if err != nil {
-			return "", errors.New("Error reading configuration file: " + err.Error())
+			return "", errors.New("Error reading " + name + " file: " + err.Error())
 		}
 		result = string(file)
 	}
