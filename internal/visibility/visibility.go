@@ -14,6 +14,7 @@ const maxObservableAltitude = 80.0
 type VisibilityInfo struct {
 	Object            AstroObject        `json:"object"`
 	VisibilityWindows []VisibilityWindow `json:"visibilityWindows"`
+	TotalDuration     time.Duration      `json:"totalDuration"`
 }
 
 type VisibilityWindow struct {
@@ -24,7 +25,7 @@ type VisibilityWindow struct {
 }
 
 // TODO: validate that time is in UTC
-func CalculateAltitudeVisibility(astroObjects *AstroObjectArray, configArray *ConfigArray, timeRanges []TimeRange, stepInMinutes time.Duration, printVisibleOnly bool) []VisibilityInfo {
+func CalculateAltitudeVisibility(astroObjects *AstroObjectArray, configArray *ConfigArray, timeRanges []TimeRange, stepInMinutes time.Duration, filter Filter, printVisibleOnly bool) []VisibilityInfo {
 	var allInfo []VisibilityInfo
 	for _, astroObject := range astroObjects.Objects {
 		allWindows := make([]VisibilityWindow, 0)
@@ -74,17 +75,36 @@ func CalculateAltitudeVisibility(astroObjects *AstroObjectArray, configArray *Co
 		}
 		// Merge overlapping windows from all configs
 		merged := mergeVisibilityWindows(allWindows)
-		visibilityInfo := VisibilityInfo{
-			Object:            astroObject,
-			VisibilityWindows: merged,
-		}
+
 		if printVisibleOnly && len(merged) == 0 {
 			log.Printf("Object %s has no visibility windows after merging, skipping.\n", astroObject.Name)
 			continue
 		}
+
+		totalDuration := calculateTotalVisibility(merged)
+
+		if totalDuration.Minutes() < float64(filter.MinVisibilityDurationMinutes) {
+			log.Printf("Object %s total visibility duration %.2f minutes is less than minimum %d minutes, skipping.\n", astroObject.Name, totalDuration.Minutes(), filter.MinVisibilityDurationMinutes)
+			continue
+		}
+
+		visibilityInfo := VisibilityInfo{
+			Object:            astroObject,
+			VisibilityWindows: merged,
+			TotalDuration:     calculateTotalVisibility(merged),
+		}
+
 		allInfo = append(allInfo, visibilityInfo)
 	}
 	return allInfo
+}
+
+func calculateTotalVisibility(windows []VisibilityWindow) time.Duration {
+	var total time.Duration
+	for _, window := range windows {
+		total += window.EndTime.Sub(window.StartTime)
+	}
+	return total
 }
 
 // mergeVisibilityWindows merges overlapping or adjacent visibility windows into a single list

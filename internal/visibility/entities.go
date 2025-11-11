@@ -53,6 +53,10 @@ type TimeRange struct {
 	EndTime   time.Time `json:"endTime"`
 }
 
+type Filter struct {
+	MinVisibilityDurationMinutes int `json:"minVisibilityDurationMinutes"`
+}
+
 func (ra *RightAscension) toDegree() float64 {
 	hours := float64(ra.Hour) + float64(ra.Min)/60.0 + float64(ra.Sec)/3600.0
 	return hours * 15.0

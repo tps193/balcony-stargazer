@@ -1,3 +1,6 @@
 .vscode/
 main
 !cmd/main
+test*
+mcp
+build.sh

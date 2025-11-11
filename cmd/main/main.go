@@ -45,6 +45,8 @@ func runObserve(s []string) {
 	timeFile := observeCmd.String("timefile", "", "Path to the time file in RFC3339 format (e.g., 2024-06-30T22:30:00Z)")
 	timeString := observeCmd.String("timestr", "", "String with observation time windows in RFC3339 format (e.g., 2025-07-01T05:30:00Z)")
 
+	minVisibilityMin := observeCmd.Int("minvisibilitytime", 0, "Minimum visibility duration in minutes")
+
 	logfile := observeCmd.String("logfile", "", "Path to the log file")
 
 	observeCmd.Parse(s)
@@ -81,7 +83,7 @@ func runObserve(s []string) {
 	log.Println(config)
 	log.Println(objectsArray)
 
-	visibilityInfos := visibility.CalculateAltitudeVisibility(&objectsArray, config, timeRanges, 5, visibility.Filter{MinVisibilityDurationMinutes: 0}, true)
+	visibilityInfos := visibility.CalculateAltitudeVisibility(&objectsArray, config, timeRanges, 5, visibility.Filter{MinVisibilityDurationMinutes: *minVisibilityMin}, true)
 	fmt.Println(visibility.NewSimpleOutputResult().Get(&visibilityInfos))
 }
 
