@@ -127,7 +127,7 @@ func parseTime(timeFile, timeStr *string) ([]visibility.TimeRange, error) {
 	}
 
 	var timeRanges []visibility.TimeRange
-	if len(timeRanges) == 0 {
+	if len(timeRangesJson) == 0 {
 		return nil, errors.New("no valid time range found")
 	} else {
 		for _, tr := range timeRangesJson {
