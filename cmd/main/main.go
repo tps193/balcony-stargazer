@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/tps193/balcony-stargazer/internal/database"
 	"github.com/tps193/balcony-stargazer/internal/visibility"
 )
 
@@ -24,13 +25,62 @@ func main() {
 	case "observe":
 		runObserve(os.Args[2:])
 	case "suggest":
-		panic("Not implemented")
-		// runSuggest(os.Args[2:])
+		runSuggest(os.Args[2:])
 	default:
 		fmt.Println("expected 'observe' or 'suggest' subcommands")
 		os.Exit(1)
 	}
 
+}
+
+func runSuggest(s []string) {
+	suggestCmd := flag.NewFlagSet("suggest", flag.ExitOnError)
+	observationType := suggestCmd.String("observationtype", "", "Type of observation to suggest (e.g., planetary, deep-sky)")
+	configFile := suggestCmd.String("configfile", "", "Path to the configuration file")
+	configStr := suggestCmd.String("configstr", "", "String with configurations in JSON format")
+
+	minVisibilityMin := suggestCmd.Int("minvisibilitytime", 0, "Minimum visibility duration in minutes")
+
+	//TODO: make proper descriptions and add help
+	timeFile := suggestCmd.String("timefile", "", "Path to the time file in RFC3339 format (e.g., 2024-06-30T22:30:00Z)")
+	timeString := suggestCmd.String("timestr", "", "String with observation time windows in RFC3339 format (e.g., 2025-07-01T05:30:00Z)")
+
+	logfile := suggestCmd.String("logfile", "", "Path to the log file")
+
+	suggestCmd.Parse(s)
+
+	f := initLogging(logfile)
+	if f != nil {
+		defer f.Close()
+	}
+
+	timeRanges, err := parseTime(timeFile, timeString)
+	if err != nil {
+		fmt.Println("Error parsing time range:", err)
+		return
+	}
+
+	config, err := parseConfig(configFile, configStr)
+	if err != nil {
+		fmt.Println("Error loading configuration:", err)
+		return
+	}
+
+	//copilot put paths to catalog files
+	catalogObjects, err := database.ParseCatalogCSV(*observationType, "./database/NGC_with_common_names.csv")
+	if err != nil {
+		fmt.Println("Error parsing catalog CSV:", err)
+		return
+	}
+
+	astroObjects, err := visibility.ToAstroObjects(catalogObjects)
+	if err != nil {
+		fmt.Println("Error converting catalog to astro objects:", err)
+		return
+	}
+
+	visibilityInfos := visibility.CalculateAltitudeVisibility(astroObjects, config, timeRanges, 5, visibility.Filter{MinVisibilityDurationMinutes: *minVisibilityMin}, true)
+	fmt.Println(visibility.NewSimpleOutputResult().Get(&visibilityInfos))
 }
 
 func runObserve(s []string) {

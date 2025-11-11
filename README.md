@@ -2,6 +2,8 @@
 
 This tool is designed for astrophotographers with limited observation windows due to balconies or windows. It calculates object visibility based on your location, telescope position, and any obstructions like walls or fences, helping you determine the optimal time to observe. It also has MCP server implementation so that can be connected to LLM models.
 
+The database with the astroobjects for the planned is picked up from [https://github.com/mattiaverga/OpenNGC](https://github.com/mattiaverga/OpenNGC) project.
+
 # Example
 
 ## Command line
