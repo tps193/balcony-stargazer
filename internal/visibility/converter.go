@@ -110,7 +110,7 @@ func ToAstroObjects(catalogRows []database.CatalogRow) (*AstroObjectArray, error
 			return nil, err
 		}
 		astroObjects.Objects = append(astroObjects.Objects, AstroObject{
-			Name: obj.Name,
+			Name: name,
 			Ra:   ra,
 			Dec:  dec,
 		})

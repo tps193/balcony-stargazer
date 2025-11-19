@@ -41,6 +41,12 @@ func runSuggest(s []string) {
 
 	minVisibilityMin := suggestCmd.Int("minvisibilitytime", 0, "Minimum visibility duration in minutes")
 
+	minSize := suggestCmd.Float64("minsize", -1.0, "Minimum size in arc minutes")
+	maxSize := suggestCmd.Float64("maxsize", -1.0, "Maximum size in arc minutes")
+
+	minMagnitude := suggestCmd.Float64("minmagnitude", -1.0, "Minimum magnitude")
+	maxMagnitude := suggestCmd.Float64("maxmagnitude", -1.0, "Maximum magnitude")
+
 	//TODO: make proper descriptions and add help
 	timeFile := suggestCmd.String("timefile", "", "Path to the time file in RFC3339 format (e.g., 2024-06-30T22:30:00Z)")
 	timeString := suggestCmd.String("timestr", "", "String with observation time windows in RFC3339 format (e.g., 2025-07-01T05:30:00Z)")
@@ -66,8 +72,16 @@ func runSuggest(s []string) {
 		return
 	}
 
+	filter := database.Filter{
+		MinSizeArcMinutes: *minSize,
+		MaxSizeArcMinutes: *maxSize,
+		MinMagnitude:      *minMagnitude,
+		MaxMagnitude:      *maxMagnitude,
+		ObjectType:        observationType,
+	}
+
 	//copilot put paths to catalog files
-	catalogObjects, err := database.ParseCatalogCSV(*observationType, "./database/NGC_with_common_names.csv")
+	catalogObjects, err := database.ParseCatalogCSV(filter, "/Users/sergey/Programming/GoProjects/balconyStargazer/database/NGC_with_common_names.csv")
 	if err != nil {
 		fmt.Println("Error parsing catalog CSV:", err)
 		return

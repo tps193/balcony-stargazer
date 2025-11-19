@@ -55,6 +55,8 @@ type TimeRange struct {
 
 type Filter struct {
 	MinVisibilityDurationMinutes int `json:"minVisibilityDurationMinutes"`
+	MinMagnitude                 int `json:"minMagnitude"`
+	MinSizeArcMinutes            int `json:"minSizeArcMinutes"`
 }
 
 func (ra *RightAscension) toDegree() float64 {
