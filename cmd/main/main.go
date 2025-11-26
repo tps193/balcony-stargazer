@@ -197,11 +197,14 @@ func parseTime(timeFile, timeStr *string) ([]visibility.TimeRange, error) {
 		for _, tr := range timeRangesJson {
 			startTime, err := time.Parse(time.RFC3339, tr.StartTime)
 			if err != nil {
-				return nil, fmt.Errorf("Error parsing start time: %w", err)
+				return nil, fmt.Errorf("error parsing start time: %w", err)
 			}
 			endTime, err := time.Parse(time.RFC3339, tr.EndTime)
 			if err != nil {
-				return nil, fmt.Errorf("Error parsing end time: %w", err)
+				return nil, fmt.Errorf("error parsing end time: %w", err)
+			}
+			if endTime.Before(startTime) {
+				return nil, fmt.Errorf("end time %s is before start time %s", tr.EndTime, tr.StartTime)
 			}
 			timeRanges = append(timeRanges, visibility.TimeRange{StartTime: startTime, EndTime: endTime})
 		}
