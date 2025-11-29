@@ -25,10 +25,36 @@ type AstroObjectArray struct {
 	Objects []AstroObject `json:"objects"`
 }
 
+type ObjectType string
+
+const (
+	ObjectTypeStar             ObjectType = "*"
+	ObjectTypeDoubleStar       ObjectType = "**"
+	ObjectTypeStarAss          ObjectType = "*Ass"
+	ObjectTypeClusterNebula    ObjectType = "Cl+N"
+	ObjectTypeDuplicate        ObjectType = "Dup"
+	ObjectTypeEmissionNebula   ObjectType = "EmN"
+	ObjectTypeGalaxy           ObjectType = "G"
+	ObjectTypeGalaxyCluster    ObjectType = "GCl"
+	ObjectTypeGalaxyGroup      ObjectType = "GGroup"
+	ObjectTypeGalaxyPair       ObjectType = "GPair"
+	ObjectTypeGalaxyTriple     ObjectType = "GTrpl"
+	ObjectTypeHIIRegion        ObjectType = "HII"
+	ObjectTypeNebula           ObjectType = "Neb"
+	ObjectTypeNonExistent      ObjectType = "NonEx"
+	ObjectTypeNova             ObjectType = "Nova"
+	ObjectTypeOpenCluster      ObjectType = "OCl"
+	ObjectTypeOther            ObjectType = "Other"
+	ObjectTypePlanetaryNebula  ObjectType = "PN"
+	ObjectTypeReflectionNebula ObjectType = "RfN"
+	ObjectTypeSupernovaRemnant ObjectType = "SNR"
+)
+
 type AstroObject struct {
-	Name string         `json:"name"`
-	Ra   RightAscension `json:"ra"`
-	Dec  Declination    `json:"dec"`
+	Name       string         `json:"name"`
+	Ra         RightAscension `json:"ra"`
+	Dec        Declination    `json:"dec"`
+	ObjectType ObjectType     `json:"objectType"`
 }
 
 type Position struct {

@@ -72,7 +72,7 @@ func ParseCatalogCSV(filter Filter, filePath string) ([]CatalogRow, error) {
 			continue
 		}
 
-		if filter.MinSizeArcMinutes >= 0 || filter.MaxSizeArcMinutes >= 0 {
+		if filter.MinSizeArcMinutes > 0 || filter.MaxSizeArcMinutes > 0 {
 			majAx, err := toFloat(entry.MajAx)
 			if err != nil {
 				continue
@@ -84,24 +84,24 @@ func ParseCatalogCSV(filter Filter, filePath string) ([]CatalogRow, error) {
 			minSize := min(majAx, minAx)
 			maxSize := max(majAx, minAx)
 
-			if filter.MinSizeArcMinutes >= 0 && minSize < filter.MinSizeArcMinutes {
+			if filter.MinSizeArcMinutes > 0 && minSize < filter.MinSizeArcMinutes {
 				continue
 			}
-			if filter.MaxSizeArcMinutes >= 0 && maxSize > filter.MaxSizeArcMinutes {
+			if filter.MaxSizeArcMinutes > 0 && maxSize > filter.MaxSizeArcMinutes {
 				continue
 			}
 		}
 
-		if filter.MinMagnitude >= 0 || filter.MaxMagnitude >= 0 {
+		if filter.MinMagnitude > 0 || filter.MaxMagnitude > 0 {
 			vMag, err := toFloat(entry.VMag)
 			if err != nil {
 				continue
 			}
 
-			if filter.MinMagnitude >= 0 && vMag > filter.MinMagnitude {
+			if filter.MinMagnitude > 0 && vMag > filter.MinMagnitude {
 				continue
 			}
-			if filter.MaxMagnitude >= 0 && vMag < filter.MaxMagnitude {
+			if filter.MaxMagnitude > 0 && vMag < filter.MaxMagnitude {
 				continue
 			}
 		}

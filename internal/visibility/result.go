@@ -18,7 +18,7 @@ func NewSimpleOutputResult() *ConsoleOutput {
 func (output *ConsoleOutput) Get(visibilityWindows *[]VisibilityInfo) string {
 	res := make([]byte, 0)
 	for _, info := range *visibilityWindows {
-		res = fmt.Appendf(res, "Visibility of %s:\n", info.Object.Name)
+		res = fmt.Appendf(res, "Visibility of %s (%s):\n", info.Object.Name, info.Object.ObjectType)
 		for i, window := range info.VisibilityWindows {
 			res = fmt.Appendf(res, "%d: %s\n", i, window.EndTime.Sub(window.StartTime))
 			res = fmt.Appendf(res, "\tStart: %s (%f°)\n", window.StartTime, window.StartAlt)
