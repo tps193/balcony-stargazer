@@ -151,7 +151,7 @@ func visibilityHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 	}
 	log.Printf("Observed time from %s to %s\n", startTime, endTime)
 
-	visibilityInfos := visibility.CalculateAltitudeVisibility(astroObjectArray, config, startTime, endTime, 5, true)
+	visibilityInfos := visibility.CalculateAltitudeVisibility(astroObjectArray, config, []visibility.TimeRange{{StartTime: startTime, EndTime: endTime}}, 5, visibility.Filter{}, true)
 	result := visibility.NewJsonOutput().Get(visibilityInfos)
 	return mcp.NewToolResultText(result), nil
 }

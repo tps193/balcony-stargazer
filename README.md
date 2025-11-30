@@ -2,54 +2,106 @@
 
 This tool is designed for astrophotographers with limited observation windows due to balconies or windows. It calculates object visibility based on your location, telescope position, and any obstructions like walls or fences, helping you determine the optimal time to observe. It also has MCP server implementation so that can be connected to LLM models.
 
+The database with the astroobjects for the planned is picked up from [https://github.com/mattiaverga/OpenNGC](https://github.com/mattiaverga/OpenNGC) project.
+
 # Example
 
 ## Command line
 
-These files provide the object details and configuration for the observation setup.
+The application supports two subcommands:
+- **`observe`**: Calculate visibility for specific astronomical objects you provide
+- **`suggest`**: Search the catalog and suggest observable objects matching your criteria
 
-**object.json:** Defines the astronomical object you want to observe, including its name, right ascension (RA), and declination (Dec).
+### Observe Subcommand
+
+Calculate visibility for specific astronomical objects.
+
+**Usage:**
+```bash
+./main observe -configfile=./config.json -objectfile=object.json -timefile=time.json
+```
+
+**object.json:** Defines astronomical objects as an array. Each object includes name, right ascension (RA), and declination (Dec).
 ```json
 {
-  "name": "Ghost of Cassiopeia",
-  "ra": {
-    "hour": 0,
-    "min": 58,
-    "sec": 26
+  "objects": [
+    {
+      "name": "Ghost of Cassiopeia",
+      "ra": {
+        "hour": 0,
+        "min": 59,
+        "sec": 59
+      },
+      "dec": {
+        "degree": 60,
+        "min": 0,
+        "sec": 0
+      }
+    }
+  ]
+}
+```
 
-  },
-  "dec": {
-    "degree": 60,
-    "min": 53,
-    "sec": 0
+**config.json:** Specifies observation location and telescope setup as an array of configurations (supports multiple observation positions/windows).
+```json
+{
+  "configs": [
+    {
+      "fenceHeight": 43.25,
+      "windowHeight": 62.0,
+      "distanceToFence": 35,
+      "telescopeHeight": 18.0,
+      "directAzimuth": 80.0,
+      "position": {
+        "latitude": 37.38,
+        "longitude": -121.89
+      },
+      "leftAzimuthLimit": 13.0,
+      "rightAzimuthLimit": 120.0
+    }
+  ]
+}
+```
+
+**time.json:** Time windows as an array with RFC3339 formatted timestamps including timezone.
+```json
+[
+  {
+    "startTime": "2025-07-30T22:13:00-07:00",
+    "endTime": "2025-07-31T05:23:00-07:00"
   }
-}
+]
 ```
 
-**config.json:** Specifies the parameters of your observation location and telescope setup, such as fence height, window height, distance to the fence, telescope height, direct azimuth, and geographical position (latitude and longitude). It also defines the left and right azimuth limits for observations.
-```json
-{
-  "fenceHeight": 43.25,
-  "windowHeight": 62.0,
-  "distanceToFence": 35,
-  "telescopeHeight": 18.0,
-  "directAzimuth": 80.0,
-  "position": {
-    "latitude": 37.38,
-    "longitude": -121.89
-  },
-    "leftAzimuthLimit": 13.0,
-    "rightAzimuthLimit": 120.0
-}
+**Example output:**
 ```
-
-```
-$ balconystargazer -configfile=./config.json -objectfile=object.json -starttime=2025-07-30T22:13:00-07:00 -endtime=2025-07-31T05:23:00-07:00
-
-$ Visibility of Ghost of Cassiopeia:
+Visibility of Ghost of Cassiopeia:
 0: 4h10m0s
         Start: 2025-07-30 22:13:00 -0700 PDT (29.546459°)
         End: 2025-07-31 02:23:00 -0700 PDT (58.779733°)
+```
+
+### Suggest Subcommand
+
+Search the catalog and suggest observable objects matching your criteria.
+
+**Usage:**
+```bash
+./main suggest -configfile=./config.json -timefile=time.json -observationtype=HII -minsize=5.0 -maxmagnitude=10.0
+```
+
+**Available filters:**
+- `-observationtype`: Object type (e.g., `HII`, `G`, `Neb`, `OCl`, `PN`)
+- `-minsize`, `-maxsize`: Size constraints in arc minutes
+- `-minmagnitude`, `-maxmagnitude`: Magnitude constraints
+- `-minvisibilitytime`: Minimum visibility duration in minutes
+
+**Example output:**
+```
+Visibility of NGC7635 (Bubble Nebula):
+0: 3h45m0s
+        Start: 2025-07-30 22:30:00 -0700 PDT (35.2°)
+        End: 2025-07-31 02:15:00 -0700 PDT (62.8°)
 ```
 
 ## LLM
@@ -77,96 +129,216 @@ Note: it is better to use more advanced model as ollama:qwen2.5 doesn't know cor
 
 # Build
 
-## Commmand line tool
+## Command line tool
 
-```
-go build -o balconystargazer ./cmd/main
+```bash
+go build -o main ./cmd/main
 ```
 
 ## MCP Server
 
-```
+```bash
 go build -o mcp ./cmd/mcp
 ```
 
 # Run
 
-## Command line tool
+## Command Line Tool
 
-The command line tool requires following data to be provided:
-1. Configuration json
-1. Object information json
-1. Start observation time with local timezone
-1. End observation time with local timezone
+The tool supports two subcommands: `observe` and `suggest`.
 
-### Configuration 
+### Observe Command
 
-Configuration can be either taken from file (`-configfile`) or provided as a string literal (`-configstr`)
+Calculate visibility for specific astronomical objects.
 
-#### Structure
+**Syntax:**
+```bash
+./main observe [flags]
+```
 
+**Required flags (one of each pair):**
+- `-configfile=<path>` or `-configstr=<json>`
+- `-objectfile=<path>` or `-objectstr=<json>`
+- `-timefile=<path>` or `-timestr=<json>`
+
+**Optional flags:**
+- `-minvisibilitytime=<minutes>`: Minimum visibility duration (default: 0)
+- `-logfile=<path>`: Log file location
+
+**Examples:**
+```bash
+# Using files
+./main observe -configfile=config.json -objectfile=objects.json -timefile=time.json
+
+# Using string literals
+./main observe -configstr='{"configs":[{...}]}' -objectstr='{"objects":[{...}]}' -timestr='[{"startTime":"...","endTime":"..."}]'
+
+# With logging and minimum visibility
+./main observe -configfile=config.json -objectfile=objects.json -timefile=time.json -minvisibilitytime=30 -logfile=output.log
+```
+
+### Suggest Command
+
+Search catalog and suggest observable objects matching criteria.
+
+**Syntax:**
+```bash
+./main suggest [flags]
+```
+
+**Required flags (one of each pair):**
+- `-configfile=<path>` or `-configstr=<json>`
+- `-timefile=<path>` or `-timestr=<json>`
+
+**Optional filter flags:**
+- `-observationtype=<type>`: Object type (e.g., HII, G, Neb, OCl, PN)
+- `-minsize=<arcmin>`: Minimum object size in arc minutes (use -1 to ignore)
+- `-maxsize=<arcmin>`: Maximum object size in arc minutes (use -1 to ignore)
+- `-minmagnitude=<mag>`: Minimum magnitude (use -1 to ignore)
+- `-maxmagnitude=<mag>`: Maximum magnitude (use -1 to ignore)
+- `-minvisibilitytime=<minutes>`: Minimum visibility duration (default: 0)
+- `-logfile=<path>`: Log file location
+
+**Examples:**
+```bash
+# Find all HII regions
+./main suggest -configfile=config.json -timefile=time.json -observationtype=HII
+
+# Find bright, large galaxies with at least 1 hour visibility
+./main suggest -configfile=config.json -timefile=time.json -observationtype=G -minsize=5.0 -maxmagnitude=10.0 -minvisibilitytime=60
+
+# Find planetary nebulae visible for at least 30 minutes
+./main suggest -configfile=config.json -timefile=time.json -observationtype=PN -minvisibilitytime=30 -logfile=suggest.log
+```
+
+### Configuration Format
+
+Configuration can be provided via file (`-configfile`) or string literal (`-configstr`).
+
+**Structure:**
 ```json
 {
-  "fenceHeight": "number",
-  "windowHeight": "number",
-  "distanceToFence": "number",
-  "telescopeHeight": "number",
-  "directAzimuth": "degree",
-  "position": {
-    "latitude": "degree",
-    "longitude": "degree"
-  },
-    "leftAzimuthLimit": "degree",
-    "rightAzimuthLimit": "degree"
+  "configs": [
+    {
+      "fenceHeight": <number>,
+      "windowHeight": <number>,
+      "distanceToFence": <number>,
+      "telescopeHeight": <number>,
+      "directAzimuth": <degrees>,
+      "position": {
+        "latitude": <degrees>,
+        "longitude": <degrees>
+      },
+      "leftAzimuthLimit": <degrees>,
+      "rightAzimuthLimit": <degrees>
+    }
+  ]
 }
 ```
 
-| Name | Data Type | Description |
-|------|-----------|-------------|
-| fenceHeight | number | Height of the fence or obstruction in front of the observation point |
-| windowHeight | number | Height of the window from the top of the fence to the ceiling |
-| distanceToFence | number | Distance from the observation point to the fence or obstruction |
-| telescopeHeight | number | Height of the telescope above the ground level (from ground to the rotation point, for example to the servoe of Vaonis Vespera) |
-| directAzimuth | number (degree) | Direct azimuth angle of the observation direction (traversal to the fence) |
-| position.latitude | number (degree) | Geographic latitude of the observation location |
-| position.longitude | number (degree) | Geographic longitude of the observation location |
-| leftAzimuthLimit | number (degree) | Left boundary azimuth limit for observations |
-| rightAzimuthLimit | number (degree) | Right boundary
+**Field descriptions:**
 
-#### Examples
+| Name | Type | Description |
+|------|------|-------------|
+| configs | array | Array of configuration objects (supports multiple observation positions) |
+| fenceHeight | number | Height of fence/obstruction in front of observation point |
+| windowHeight | number | Height of window from top of fence to ceiling |
+| distanceToFence | number | Distance from observation point to fence/obstruction |
+| telescopeHeight | number | Height of telescope above ground (to rotation point) |
+| directAzimuth | number (degrees) | Direct azimuth angle of observation direction (perpendicular to fence) |
+| position.latitude | number (degrees) | Geographic latitude of observation location |
+| position.longitude | number (degrees) | Geographic longitude of observation location |
+| leftAzimuthLimit | number (degrees) | Left boundary azimuth limit for observations |
+| rightAzimuthLimit | number (degrees) | Right boundary azimuth limit for observations |
 
-```bash
-balconystargazer -configfile=config.json -objectfile=object.json -starttime=2025-07-30T22:13:00-07:00 -endtime=2025-07-31T05:23:00-07:00
-```
+**Examples:**
 
-```bash
-balconystargazer -configstr='{"fenceHeight": 43.25, "windowHeight": 62.0, "distanceToFence": 35, "telescopeHeight": 18.0, "directAzimuth": 80.0, "position": {"latitude": 37.38, "longitude": -121.89}, "leftAzimuthLimit": 13.0, "rightAzimuthLimit": 120.0}' -objectfile=object.json -starttime=2025-07-30T22:13:00-07:00 -endtime=2025-07-31T05:23:00-07:00
-```
-
-### Object Information
-
-Object information can be either taken from file (`-objectfile`) or provided as a string literal (`-objectstr`)
-
-#### Structure
-
+Single configuration:
 ```json
 {
-  "name": "string",
-  "ra": {
-    "hour": "number",
-    "min": "number",
-    "sec": "number"
-  },
-  "dec": {
-    "degree": "number",
-    "min": "number",
-    "sec": "number"
-  }
+  "configs": [
+    {
+      "fenceHeight": 43.25,
+      "windowHeight": 62.0,
+      "distanceToFence": 35,
+      "telescopeHeight": 18.0,
+      "directAzimuth": 80.0,
+      "position": {
+        "latitude": 37.38,
+        "longitude": -121.89
+      },
+      "leftAzimuthLimit": 13.0,
+      "rightAzimuthLimit": 120.0
+    }
+  ]
 }
 ```
 
-| Name | Data Type | Description |
-|------|-----------|-------------|
+Multiple configurations (multiple obstructions):
+```json
+{
+  "configs": [
+    {
+      "fenceHeight": 43.25,
+      "windowHeight": 62.0,
+      "distanceToFence": 12,
+      "telescopeHeight": 45.0,
+      "directAzimuth": 66.0,
+      "position": {
+        "latitude": 37.38,
+        "longitude": -121.89
+      },
+      "leftAzimuthLimit": 350.0,
+      "rightAzimuthLimit": 160.0
+    },
+    {
+      "fenceHeight": 43.25,
+      "windowHeight": 62.0,
+      "distanceToFence": 33,
+      "telescopeHeight": 45.0,
+      "directAzimuth": 340.0,
+      "position": {
+        "latitude": 37.38,
+        "longitude": -121.89
+      },
+      "leftAzimuthLimit": 255.0,
+      "rightAzimuthLimit": 298.0
+    }
+  ]
+}
+```
+
+### Object Information Format (observe command only)
+
+Object information can be provided via file (`-objectfile`) or string literal (`-objectstr`).
+
+**Structure:**
+```json
+{
+  "objects": [
+    {
+      "name": <string>,
+      "ra": {
+        "hour": <number>,
+        "min": <number>,
+        "sec": <number>
+      },
+      "dec": {
+        "degree": <number>,
+        "min": <number>,
+        "sec": <number>
+      },
+      "objectType": <string (optional)>
+    }
+  ]
+}
+```
+
+**Field descriptions:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| objects | array | Array of astronomical objects to observe |
 | name | string | Name of the astronomical object |
 | ra.hour | number | Hour component of right ascension (0-23) |
 | ra.min | number | Minute component of right ascension (0-59) |
@@ -174,54 +346,114 @@ Object information can be either taken from file (`-objectfile`) or provided as 
 | dec.degree | number | Degree component of declination (-90 to +90) |
 | dec.min | number | Minute component of declination (0-59) |
 | dec.sec | number | Second component of declination (0-59) |
+| objectType | string (optional) | Type of object (HII, G, Neb, etc.) |
 
-#### Examples
-
-```bash
-balconystargazer -configfile=config.json -objectfile=object.json -starttime=2025-07-30T22:13:00-07:00 -endtime=2025-07-31T05:23:00-07:00
+**Example:**
+```json
+{
+  "objects": [
+    {
+      "name": "Andromeda Galaxy (M31)",
+      "ra": {
+        "hour": 0,
+        "min": 42,
+        "sec": 44
+      },
+      "dec": {
+        "degree": 41,
+        "min": 16,
+        "sec": 9
+      },
+      "objectType": "G"
+    },
+    {
+      "name": "Orion Nebula (M42)",
+      "ra": {
+        "hour": 5,
+        "min": 35,
+        "sec": 17
+      },
+      "dec": {
+        "degree": -5,
+        "min": 23,
+        "sec": 28
+      },
+      "objectType": "HII"
+    }
+  ]
+}
 ```
 
-```bash
-balconystargazer -configfile=config.json -objectstr='{"name": "Ghost of Cassiopeia", "ra": {"hour": 0, "min": 58, "sec": 26}, "dec": {"degree": 60, "min": 53, "sec": 0}}' -starttime=2025-07-30T22:13:00-07:00 -endtime=2025-07-31T05:23:00-07:00
+### Time Format
+
+Time windows can be provided via file (`-timefile`) or string literal (`-timestr`).
+
+**Structure:**
+```json
+[
+  {
+    "startTime": <RFC3339 timestamp with timezone>,
+    "endTime": <RFC3339 timestamp with timezone>
+  }
+]
 ```
 
-### Time
+The format must be RFC3339 with timezone offset (e.g., `-07:00` for PDT, `+02:00` for CEST).
 
-Start time and end time specify the window in which the tool would check for the object visibility.
-The proper timezone must be specified in the value. Otherwise the calculation of local azimuth and altitude of the astronomical object at the specific time will be incorrect.
-
-#### Examples
+**Examples:**
 
 **Pacific Time (Los Angeles, California):**
-```bash
--starttime=2025-07-30T22:30:00-07:00 -endtime=2025-07-31T05:30:00-07:00
+```json
+[
+  {
+    "startTime": "2025-07-30T22:30:00-07:00",
+    "endTime": "2025-07-31T05:30:00-07:00"
+  }
+]
 ```
 
 **Eastern Time (New York, New York):**
-```bash
--starttime=2025-07-30T22:30:00-04:00 -endtime=2025-07-31T05:30:00-04:00
+```json
+[
+  {
+    "startTime": "2025-07-30T22:30:00-04:00",
+    "endTime": "2025-07-31T05:30:00-04:00"
+  }
+]
 ```
 
 **Central European Time (Berlin, Germany):**
-```bash
--starttime=2025-07-30T22:30:00+02:00 -endtime=2025-07-31T05:30:00+02:00
+```json
+[
+  {
+    "startTime": "2025-07-30T22:30:00+02:00",
+    "endTime": "2025-07-31T05:30:00+02:00"
+  }
+]
 ```
 
 **Japan Standard Time (Tokyo, Japan):**
-```bash
--starttime=2025-07-30T22:30:00+09:00 -endtime=2025-07-31T05:30:00+09:00
+```json
+[
+  {
+    "startTime": "2025-07-30T22:30:00+09:00",
+    "endTime": "2025-07-31T05:30:00+09:00"
+  }
+]
 ```
 
-### Logging
-
-You can specify log file location using `-logfile` parameter
-
-```bash
--logfile=test.log
-```
-
-```bash
-balconystargazer -configfile=config.json -objectfile=object.json -starttime=2025-07-30T22:30:00-07:00 -endtime=2025-07-31T05:30:00-07:00 -logfile=stargazer.log
+**Multiple time windows:**
+```json
+[
+  {
+    "startTime": "2025-07-30T22:00:00-07:00",
+    "endTime": "2025-07-31T02:00:00-07:00"
+  },
+  {
+    "startTime": "2025-07-31T22:00:00-07:00",
+    "endTime": "2025-08-01T02:00:00-07:00"
+  }
+]
 ```
 
 ## MCP Server

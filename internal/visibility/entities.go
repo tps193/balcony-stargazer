@@ -1,5 +1,7 @@
 package visibility
 
+import "time"
+
 const (
 	VESPERA_HEIGHT = 18.00
 )
@@ -23,10 +25,36 @@ type AstroObjectArray struct {
 	Objects []AstroObject `json:"objects"`
 }
 
+type ObjectType string
+
+const (
+	ObjectTypeStar             ObjectType = "*"
+	ObjectTypeDoubleStar       ObjectType = "**"
+	ObjectTypeStarAss          ObjectType = "*Ass"
+	ObjectTypeClusterNebula    ObjectType = "Cl+N"
+	ObjectTypeDuplicate        ObjectType = "Dup"
+	ObjectTypeEmissionNebula   ObjectType = "EmN"
+	ObjectTypeGalaxy           ObjectType = "G"
+	ObjectTypeGalaxyCluster    ObjectType = "GCl"
+	ObjectTypeGalaxyGroup      ObjectType = "GGroup"
+	ObjectTypeGalaxyPair       ObjectType = "GPair"
+	ObjectTypeGalaxyTriple     ObjectType = "GTrpl"
+	ObjectTypeHIIRegion        ObjectType = "HII"
+	ObjectTypeNebula           ObjectType = "Neb"
+	ObjectTypeNonExistent      ObjectType = "NonEx"
+	ObjectTypeNova             ObjectType = "Nova"
+	ObjectTypeOpenCluster      ObjectType = "OCl"
+	ObjectTypeOther            ObjectType = "Other"
+	ObjectTypePlanetaryNebula  ObjectType = "PN"
+	ObjectTypeReflectionNebula ObjectType = "RfN"
+	ObjectTypeSupernovaRemnant ObjectType = "SNR"
+)
+
 type AstroObject struct {
-	Name string         `json:"name"`
-	Ra   RightAscension `json:"ra"`
-	Dec  Declination    `json:"dec"`
+	Name       string         `json:"name"`
+	Ra         RightAscension `json:"ra"`
+	Dec        Declination    `json:"dec"`
+	ObjectType ObjectType     `json:"objectType"`
 }
 
 type Position struct {
@@ -44,6 +72,17 @@ type Declination struct {
 	Degree float64 `json:"degree"`
 	Min    float64 `json:"min"`
 	Sec    float64 `json:"sec"`
+}
+
+type TimeRange struct {
+	StartTime time.Time `json:"startTime"`
+	EndTime   time.Time `json:"endTime"`
+}
+
+type Filter struct {
+	MinVisibilityDurationMinutes int `json:"minVisibilityDurationMinutes"`
+	MinMagnitude                 int `json:"minMagnitude"`
+	MinSizeArcMinutes            int `json:"minSizeArcMinutes"`
 }
 
 func (ra *RightAscension) toDegree() float64 {

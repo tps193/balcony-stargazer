@@ -14,6 +14,7 @@ const maxObservableAltitude = 80.0
 type VisibilityInfo struct {
 	Object            AstroObject        `json:"object"`
 	VisibilityWindows []VisibilityWindow `json:"visibilityWindows"`
+	TotalDuration     time.Duration      `json:"totalDuration"`
 }
 
 type VisibilityWindow struct {
@@ -24,7 +25,7 @@ type VisibilityWindow struct {
 }
 
 // TODO: validate that time is in UTC
-func CalculateAltitudeVisibility(astroObjects *AstroObjectArray, configArray *ConfigArray, startTime, endTime time.Time, stepInMinutes time.Duration, printVisibleOnly bool) []VisibilityInfo {
+func CalculateAltitudeVisibility(astroObjects *AstroObjectArray, configArray *ConfigArray, timeRanges []TimeRange, stepInMinutes time.Duration, filter Filter, printVisibleOnly bool) []VisibilityInfo {
 	var allInfo []VisibilityInfo
 	for _, astroObject := range astroObjects.Objects {
 		allWindows := make([]VisibilityWindow, 0)
@@ -37,33 +38,35 @@ func CalculateAltitudeVisibility(astroObjects *AstroObjectArray, configArray *Co
 				min, max := getTelescopeMinMaxAltitute(&config, config.DirectAzimuth)
 				log.Printf("Telescope min altitude: %.2f°, max altitude: %.2f° at %f° azimuth\n", min, max, config.DirectAzimuth)
 				log.Println("Start visibility calculation cycle")
-				for t := startTime; t.Before(endTime) || t.Equal(endTime); t = t.Add(stepInMinutes * time.Minute) {
-					log.Println("Calculating visibility for time:", t.Format(time.RFC3339))
-					alt, az := radecToAltAz(astroObject, &config.Position, t)
-					// log.Printf("Altitude: %.2f°, Azimuth: %.2f°\n", alt, az)
-					visible := isVisible(alt, az, &config)
+				for _, timeRange := range timeRanges {
+					for t := timeRange.StartTime; t.Before(timeRange.EndTime) || t.Equal(timeRange.EndTime); t = t.Add(stepInMinutes * time.Minute) {
+						log.Println("Calculating visibility for time:", t.Format(time.RFC3339))
+						alt, az := radecToAltAz(astroObject, &config.Position, t)
+						// log.Printf("Altitude: %.2f°, Azimuth: %.2f°\n", alt, az)
+						visible := isVisible(alt, az, &config)
 
-					if lastVisibilityWindow != nil {
-						lastVisibilityWindow.EndAlt = alt
-						lastVisibilityWindow.EndTime = t
-					}
-
-					if visible {
-						log.Printf("Object is visible at azimuth %.2f° and altitude %.2f°\n", az, alt)
-						if lastVisibilityWindow == nil {
-							lastVisibilityWindow = &VisibilityWindow{
-								StartTime: t,
-								StartAlt:  alt,
-								EndAlt:    alt,
-								EndTime:   t,
-							}
+						if lastVisibilityWindow != nil {
+							lastVisibilityWindow.EndAlt = alt
+							lastVisibilityWindow.EndTime = t
 						}
-					} else if lastVisibilityWindow != nil {
+
+						if visible {
+							log.Printf("Object is visible at azimuth %.2f° and altitude %.2f°\n", az, alt)
+							if lastVisibilityWindow == nil {
+								lastVisibilityWindow = &VisibilityWindow{
+									StartTime: t,
+									StartAlt:  alt,
+									EndAlt:    alt,
+									EndTime:   t,
+								}
+							}
+						} else if lastVisibilityWindow != nil {
+							endVisibilityWindow(&lastVisibilityWindow, &visibilityWindows)
+						}
+					}
+					if lastVisibilityWindow != nil {
 						endVisibilityWindow(&lastVisibilityWindow, &visibilityWindows)
 					}
-				}
-				if lastVisibilityWindow != nil {
-					endVisibilityWindow(&lastVisibilityWindow, &visibilityWindows)
 				}
 			} else {
 				log.Printf("Object %s is never visible from the given location and configuration.\n", astroObject.Name)
@@ -72,17 +75,36 @@ func CalculateAltitudeVisibility(astroObjects *AstroObjectArray, configArray *Co
 		}
 		// Merge overlapping windows from all configs
 		merged := mergeVisibilityWindows(allWindows)
-		visibilityInfo := VisibilityInfo{
-			Object:            astroObject,
-			VisibilityWindows: merged,
-		}
+
 		if printVisibleOnly && len(merged) == 0 {
 			log.Printf("Object %s has no visibility windows after merging, skipping.\n", astroObject.Name)
 			continue
 		}
+
+		totalDuration := calculateTotalVisibility(merged)
+
+		if totalDuration.Minutes() < float64(filter.MinVisibilityDurationMinutes) {
+			log.Printf("Object %s total visibility duration %.2f minutes is less than minimum %d minutes, skipping.\n", astroObject.Name, totalDuration.Minutes(), filter.MinVisibilityDurationMinutes)
+			continue
+		}
+
+		visibilityInfo := VisibilityInfo{
+			Object:            astroObject,
+			VisibilityWindows: merged,
+			TotalDuration:     calculateTotalVisibility(merged),
+		}
+
 		allInfo = append(allInfo, visibilityInfo)
 	}
 	return allInfo
+}
+
+func calculateTotalVisibility(windows []VisibilityWindow) time.Duration {
+	var total time.Duration
+	for _, window := range windows {
+		total += window.EndTime.Sub(window.StartTime)
+	}
+	return total
 }
 
 // mergeVisibilityWindows merges overlapping or adjacent visibility windows into a single list

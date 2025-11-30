@@ -5,8 +5,12 @@ Generated with AI
 package visibility
 
 import (
+	"fmt"
+	"log"
 	"math"
 	"time"
+
+	"github.com/tps193/balcony-stargazer/internal/database"
 )
 
 // degrees to radians
@@ -84,4 +88,68 @@ func radecToAltAz(astroObject AstroObject, position *Position, observationTime t
 	}
 
 	return Rad2deg(alt_rad), normalize360(Rad2deg(az_rad))
+}
+
+func ToAstroObjects(catalogRows []database.CatalogRow) (*AstroObjectArray, error) {
+	astroObjects := &AstroObjectArray{}
+	astroObjects.Objects = []AstroObject{}
+	for _, obj := range catalogRows {
+		name := obj.Name
+		if obj.Commonnames != "" {
+			name = fmt.Sprintf("%s (%s)", obj.Commonnames, obj.Name)
+		}
+		log.Println("Processing object:", name, "RA:", obj.RA, "Dec:", obj.Dec)
+		ra, err := parseCatalogRA(obj.RA)
+		if err != nil {
+			fmt.Println("Error parsing RA:", err)
+			return nil, err
+		}
+		dec, err := parseCatalogDec(obj.Dec)
+		if err != nil {
+			fmt.Println("Error parsing Dec:", err)
+			return nil, err
+		}
+		astroObjects.Objects = append(astroObjects.Objects, AstroObject{
+			Name: name,
+			Ra:   ra,
+			Dec:  dec,
+		})
+	}
+	return astroObjects, nil
+}
+
+// parseCatalogRA parses a string like "10:08:28.10" into a RightAscension struct
+func parseCatalogRA(s string) (RightAscension, error) {
+	var ra RightAscension
+	// convert floats to int where needed
+	n, err := fmt.Sscanf(s, "%f:%f:%f", &ra.Hour, &ra.Min, &ra.Sec)
+	if err != nil {
+		return ra, fmt.Errorf("failed to parse RA: %w", err)
+	}
+	if n != 3 {
+		return ra, fmt.Errorf("RA string should have format HH:MM:SS.ss, got: %s", s)
+	}
+	return ra, nil
+}
+
+// parseCatalogDec parses a string like "+12:18:23.0" or "-12:18:23.0" into a Declination struct
+func parseCatalogDec(s string) (Declination, error) {
+	var dec Declination
+	sign := 1.0
+	if len(s) > 0 && (s[0] == '-' || s[0] == '+') {
+		if s[0] == '-' {
+			sign = -1.0
+		}
+		s = s[1:]
+	}
+	var deg float64
+	n, err := fmt.Sscanf(s, "%f:%f:%f", &deg, &dec.Min, &dec.Sec)
+	if err != nil {
+		return dec, fmt.Errorf("failed to parse Dec: %w", err)
+	}
+	if n != 3 {
+		return dec, fmt.Errorf("Dec string should have format [+/-]DD:MM:SS.ss, got: %s", s)
+	}
+	dec.Degree = sign * float64(deg)
+	return dec, nil
 }
